@@ -7,17 +7,17 @@ EVAL_TASKS = [
     ("Who was Albert Einstein?", "lookup"),
 ]
 
-correct = 0
+def evaluate():
+    correct = 0
 
-for task, expected_tool in EVAL_TASKS:
-    result = agent(task)
+    for task, expected_tool in EVAL_TASKS:
+        result = agent(task)
 
-    if result["tool"] == expected_tool:
-        correct += 1
+        if result["tool"] == expected_tool:
+            correct += 1
 
-    print(task)
-    print("Expected:", expected_tool)
-    print("Chosen:", result["tool"])
-    print()
+        print(task)
+        print("Expected:", expected_tool)
+        print("Chosen:", result["tool"])
 
-print(f"Score: {correct}/{len(EVAL_TASKS)}")
+    print(f"Score: {correct}/{len(EVAL_TASKS)}")
