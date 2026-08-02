@@ -62,8 +62,10 @@ def agent(task):
 
     else:
         return {
+            "task": task,
+            "action": action,
             "tool": "none",
-            "result": None,
+            "observation": None,
             "answer": action,
         }
 
