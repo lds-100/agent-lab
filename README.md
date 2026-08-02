@@ -145,42 +145,46 @@ A single-step trajectory looks like:
 These records let us inspect what the agent did and will eventually provide the data structure needed for RL.
 
 ---
+### Multi-Step Baseline
 
-## Multi-Step Baseline
+The first multi-step baseline evaluates the untrained Qwen 2.5 1.5B Instruct model on **8 tasks** requiring one or more tool-use decisions.
 
-We created five tasks where the model must use a calculation to answer a follow-up question.
+The baseline uses a simple **final-answer reward**: a task receives a reward of 1 if the final answer matches the expected answer, and 0 otherwise. No reinforcement learning or parameter updates are performed during this evaluation.
 
-Example:
+| Property       | Baseline                 |
+| -------------- | ------------------------ |
+| Model          | Qwen 2.5 1.5B Instruct   |
+| Training       | None                     |
+| Tasks          | 8                        |
+| Reward         | Final-answer correctness |
+| Accuracy       | 6/8 (75%)                |
+| Average reward | 0.75                     |
 
-```text
-What is 23 * 17, and is the result greater than 400?
-```
-
-A successful sequence could be:
-
-```text
-CALL_CALCULATOR(23*17)
-        ↓
-391
-        ↓
-CALL_CALCULATOR(391 > 400)
-        ↓
-False
-        ↓
-Final answer
-```
-
-The untrained model currently achieves:
-
-**2 / 5 rewarded — 40%**
-
-The frozen multi-step baseline is:
+The resulting trajectories are frozen in:
 
 ```text
 baseline_multistep_trajectories.jsonl
 ```
 
-The current multi-step reward checks whether the final answer matches the expected `True` or `False` result.
+The trajectories show several behaviors that are relevant to the later RL experiments. The model sometimes reaches the correct answer without using a tool, sometimes makes unnecessary or incorrect tool calls, and sometimes uses multiple tools successfully to complete a task.
+
+For example, the Shakespeare task required two lookup calls:
+
+```text
+Task
+ ↓
+Lookup birth date
+ ↓
+Lookup death date
+ ↓
+Final answer: 52 years old
+```
+
+Other tasks exposed different failure modes. In one calculation task, the model correctly calculated `23 × 17 = 391` but then incorrectly concluded that 391 was greater than 400. In another, the model obtained the correct intermediate result but failed to complete the comparison.
+
+These trajectories provide the **untrained behavioral baseline** against which later changes to the reward function and, eventually, RL training can be compared.
+
+**Baseline frozen:** August 2, 2026
 
 ---
 
