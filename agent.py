@@ -1,4 +1,4 @@
-from env import calculator
+from env import calculator, lookup
 from model import tokenizer, model
 
 SYSTEM_PROMPT_BASELINE = (
@@ -40,7 +40,10 @@ def agent(task):
 
     if answer.startswith("CALL_CALCULATOR"):
         expression = answer[len("CALL_CALCULATOR("):-1]
-        result = calculator(expression)
-        return result
+        return calculator(expression)
+
+    if answer.startswith("CALL_LOOKUP"):
+        topic = answer[len("CALL_LOOKUP("):-1]
+        return lookup(topic)
 
     return answer
