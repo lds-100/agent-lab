@@ -1,4 +1,5 @@
 from agent import agent
+from reward import calculate_reward
 
 EVAL_TASKS = [
     ("What is 23 * 17?", "calculator"),
@@ -18,6 +19,12 @@ def evaluate():
 
     for task, expected_tool in EVAL_TASKS:
         result = agent(task)
+        reward = calculate_reward(
+            result["tool"],
+            expected_tool,
+        )
+
+        print("Reward:", reward)
 
         if result["tool"] == expected_tool:
             correct += 1

@@ -105,7 +105,8 @@ def agent(task):
 
     # 5. Return the full trajectory for evaluation
     return {
+        "task": task,
         "tool": tool,
-        "result": result,
+        "observation": result,
         "answer": final_answer,
     }
