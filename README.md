@@ -238,12 +238,15 @@ agent-lab/
 
 ### Next
 
+* Expand multi-step evaluation. Right now it only contains 2 steps where both steps are calculator.
 * Formalize the RL environment
 * Define states, actions, observations, and rewards
 * Improve multi-step task design
 * Build the RL training loop
 * Train the model
 * Compare trained vs. untrained performance
+* Explore rewarding efficient and inefficient tool use.
+
 
 ---
 
