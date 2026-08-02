@@ -84,6 +84,8 @@ def evaluate():
 
 
 def evaluate_multistep():
+    results = []
+
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
@@ -91,6 +93,11 @@ def evaluate_multistep():
             result["answer"],
             task["expected_answer"]
         )
+
+        results.append({
+            "result": result,
+            "reward": reward,
+        })
 
         print("\nTASK:", task["task"])
         print("STEPS:")
@@ -102,8 +109,12 @@ def evaluate_multistep():
         print("EXPECTED:", task["expected_answer"])
         print("REWARD:", reward)
 
+    return results
+
 
 def evaluate_multistep_efficiency():
+    results = []
+
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
@@ -111,6 +122,11 @@ def evaluate_multistep_efficiency():
             result["answer"],
             task["expected_answer"]
         )
+
+        results.append({
+            "result": result,
+            "reward": reward,
+        })
 
         print("\nTASK:", task["task"])
         print("STEPS:")
@@ -122,3 +138,5 @@ def evaluate_multistep_efficiency():
         print("EXPECTED:", task["expected_answer"])
         print("EXPECTED TOOLS:", task["expected_tools"])
         print("REWARD:", reward)
+
+    return results
