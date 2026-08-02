@@ -49,7 +49,7 @@ def evaluate():
 
 def evaluate_multistep():
     for task in MULTISTEP_TASKS:
-        result = agent.agent(task)
+        result = agent(task)
 
         print("\nTASK:", task)
         print("STEPS:")
