@@ -17,9 +17,7 @@ SYSTEM_PROMPT_FINAL = (
     "Give only the final answer."
 )
 
-def agent(task):
-
-    # 1. Qwen chooses a tool
+def agent(task, max_steps=2):
     messages = [
         {
             "role": "system",
@@ -31,69 +29,85 @@ def agent(task):
         },
     ]
 
+    steps = []
+
+    for _ in range(max_steps):
+
+        # Ask Qwen for the next action
+        prompt = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        inputs = tokenizer(
+            prompt,
+            return_tensors="pt"
+        ).to(model.device)
+
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=50,
+        )
+
+        action = tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1]:],
+            skip_special_tokens=True,
+        ).strip()
+
+        # Execute the selected tool
+        if action.startswith("CALL_CALCULATOR"):
+            expression = action[len("CALL_CALCULATOR("):-1]
+            result = calculator(expression)
+            tool = "calculator"
+
+        elif action.startswith("CALL_LOOKUP"):
+            topic = action[len("CALL_LOOKUP("):-1]
+            result = lookup(topic)
+            tool = "lookup"
+
+        else:
+            return {
+                "task": task,
+                "steps": steps,
+                "answer": action,
+                "reward": 0,
+            }
+
+        # Record this step
+        steps.append({
+            "action": action,
+            "tool": tool,
+            "observation": result,
+        })
+
+        # Give the observation back to Qwen
+        messages.append({
+            "role": "assistant",
+            "content": action,
+        })
+
+        messages.append({
+            "role": "user",
+            "content": f"Tool result: {result}",
+        })
+
+    # Ask Qwen for final answer
+    messages.append({
+        "role": "system",
+        "content": SYSTEM_PROMPT_FINAL,
+    })
+
     prompt = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
         add_generation_prompt=True,
     )
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=50,
-    )
-
-    action = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[-1]:],
-        skip_special_tokens=True,
-    ).strip()
-
-    # 2. Execute the chosen tool
-    if action.startswith("CALL_CALCULATOR"):
-        expression = action[len("CALL_CALCULATOR("):-1]
-        result = calculator(expression)
-        tool = "calculator"
-
-    elif action.startswith("CALL_LOOKUP"):
-        topic = action[len("CALL_LOOKUP("):-1]
-        result = lookup(topic)
-        tool = "lookup"
-
-    else:
-        return {
-            "task": task,
-            "action": action,
-            "tool": "none",
-            "observation": None,
-            "answer": action,
-        }
-
-    # 3. Qwen receives the tool observation
-    final_messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT_FINAL,
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Original question: {task}\n"
-                f"Tool used: {tool}\n"
-                f"Tool result: {result}\n"
-                "Now give the final answer."
-            ),
-        },
-    ]
-
-    # 4. Qwen produces the final answer
-    prompt = tokenizer.apply_chat_template(
-        final_messages,
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt"
+    ).to(model.device)
 
     outputs = model.generate(
         **inputs,
@@ -105,11 +119,8 @@ def agent(task):
         skip_special_tokens=True,
     ).strip()
 
-    # 5. Return the full trajectory for evaluation
     return {
         "task": task,
-        "action": action,
-        "tool": tool,
-        "observation": result,
+        "steps": steps,
         "answer": final_answer,
     }
