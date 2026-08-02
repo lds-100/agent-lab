@@ -16,6 +16,7 @@ EVAL_TASKS = [
 
 def evaluate():
     correct = 0
+    total_reward = 0
 
     for task, expected_tool in EVAL_TASKS:
         result = agent(task)
@@ -28,9 +29,11 @@ def evaluate():
 
         if result["tool"] == expected_tool:
             correct += 1
-
+        
+        total_reward += reward
         print(task)
         print("Expected:", expected_tool)
         print("Chosen:", result["tool"])
 
     print(f"Score: {correct}/{len(EVAL_TASKS)}")
+    print(f"Average reward: {total_reward / len(EVAL_TASKS):.2f}")
