@@ -1,12 +1,21 @@
 from env import calculator
 from model import tokenizer, model
 
+SYSTEM_PROMPT_BASELINE = (
+    "You have access to tools. Choose exactly one action."
+)
+
+SYSTEM_PROMPT_TOOLS = (
+    "Choose exactly one action. "
+    "For arithmetic, output CALL_CALCULATOR(expression). "
+    "For information requests, output CALL_LOOKUP(topic). "
+    "Output nothing else."
+)
 def agent(task):
     messages = [
     {
         "role": "system",
-        "content": "Tools available: calculator(expression) for arithmetic; lookup(topic) for information. Choose the appropriate tool."
-    },
+        "content": SYSTEM_PROMPT_TOOLS
     {"role": "user", "content": task}
     ]
 
