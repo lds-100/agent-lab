@@ -16,6 +16,7 @@ def agent(task):
     {
         "role": "system",
         "content": SYSTEM_PROMPT_TOOLS
+    },
     {"role": "user", "content": task}
     ]
 
