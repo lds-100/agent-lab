@@ -37,6 +37,23 @@ We are deliberately building the project in stages. The current work is the **un
 The goal is to first understand how well the untrained model uses tools, then measure whether training improves that behavior.
 
 ---
+## What We Want to Learn
+
+The project is not just about making the agent answer more questions correctly. It is designed to explore how reinforcement learning changes **tool-use decisions**.
+
+As the environment becomes more complex, we want to understand:
+
+* **Reward design:** How should correct, unnecessary, and invalid tool calls be rewarded?
+* **Credit assignment:** If an agent makes several decisions before receiving a reward, which decisions deserve credit or blame?
+* **Exploration:** How does the agent discover better tool-use strategies?
+* **Policy learning:** Does training actually change which actions the model chooses?
+* **Process vs. outcome rewards:** Is it better to reward only the final answer, or also individual steps?
+
+The eventual goal is to train a small model in this environment and compare its learned behavior against the frozen untrained baseline.
+
+We will start with a simple RL method such as **REINFORCE** before investigating more advanced methods such as **PPO** or **GRPO**.
+
+---
 
 ## Current Architecture
 
