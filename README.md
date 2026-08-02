@@ -185,6 +185,7 @@ Other tasks exposed different failure modes. In one calculation task, the model 
 These trajectories provide the **untrained behavioral baseline** against which later changes to the reward function and, eventually, RL training can be compared.
 
 **Baseline frozen:** August 2, 2026
+**Commit:** `32f5253`
 
 ---
 
