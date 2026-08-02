@@ -11,6 +11,7 @@ SYSTEM_PROMPT_TOOLS = (
     "For information requests, output CALL_LOOKUP(topic). "
     "Output nothing else."
 )
+
 def agent(task):
     messages = [
     {
@@ -40,10 +41,21 @@ def agent(task):
 
     if answer.startswith("CALL_CALCULATOR"):
         expression = answer[len("CALL_CALCULATOR("):-1]
-        return calculator(expression)
+        result = calculator(expression)
+        return {
+                "tool": "calculator",
+                "result": result,
+            }
 
     if answer.startswith("CALL_LOOKUP"):
         topic = answer[len("CALL_LOOKUP("):-1]
-        return lookup(topic)
+        result = lookup(topic)
+        return {
+                "tool": "lookup",
+                "result": result,
+            }
 
-    return answer
+    return {
+        "tool": "none",
+        "result": answer,
+    }
