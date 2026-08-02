@@ -155,12 +155,14 @@ The current environment allows the model to make repeated tool calls, although t
 
 The initial single-step reward is intentionally simple.
 
-Let $a$ be the tool selected by the model and $a^*$ be the expected tool. The reward is:
+Let $a$ be the tool selected by the model and $a^*$ be the expected tool.
+
+The reward function is:
 
 $$
 R(a,a^*) =
 \begin{cases}
-1 & \text{if } a=a^* \\
+1 & \text{if } a = a^* \\
 0 & \text{otherwise}
 \end{cases}
 $$
@@ -168,7 +170,7 @@ $$
 Thus, for a set of $N$ evaluation tasks, the average reward is:
 
 $$
-\bar{R} = \frac{1}{N}\sum_{i=1}^{N} R_i.
+\bar{R} = \frac{1}{N}\sum_{i=1}^{N} R_i
 $$
 
 For multi-step tasks, the current reward checks whether the model's final answer matches the expected answer:
@@ -176,8 +178,8 @@ For multi-step tasks, the current reward checks whether the model's final answer
 $$
 R =
 \begin{cases}
-1 & \text{if the final answer is correct} \
-0 & \text{otherwise}.
+1 & \text{if the final answer is correct} \\
+0 & \text{otherwise}
 \end{cases}
 $$
 
@@ -249,27 +251,13 @@ The untrained model was evaluated on 10 tasks.
 
 The model selected the expected tool on 9 of the 10 tasks.
 
-Therefore:
+Therefore, the tool-selection accuracy is:
 
-$$
-\text{Tool-selection accuracy}
-=
-\frac{9}{10}
-=
-0.90
-=
-90\%.
-$$
+$9/10 = 0.90 = 90\%$.
 
-The average reward is also:
+The average reward is:
 
-$$
-\bar{R}
-=
-\frac{9}{10}
-=
-0.90.
-$$
+$\bar{R} = 9/10 = 0.90$.
 
 The model made one incorrect tool decision on the task:
 
