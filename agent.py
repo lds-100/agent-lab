@@ -71,7 +71,6 @@ def agent(task, max_steps=2):
                 "task": task,
                 "steps": steps,
                 "answer": action,
-                "reward": 0,
             }
 
         # Record this step
