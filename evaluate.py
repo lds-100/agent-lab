@@ -1,5 +1,5 @@
 from agent import agent
-from reward import calculate_reward
+from reward import calculate_reward, calculate_multistep_reward
 
 EVAL_TASKS = [
     ("What is 23 * 17?", "calculator"),
@@ -15,11 +15,11 @@ EVAL_TASKS = [
 ]
 
 MULTISTEP_TASKS = [
-    "What is 23 * 17, and is the result greater than 400?",
-    "What is 100 - 37, and is the result less than 70?",
-    "What is 12 * 12, and is the result equal to 144?",
-    "What is 500 / 10, and is the result greater than 40?",
-    "What is 15 + 25, and is the result less than 50?",
+    ("What is 23 * 17, and is the result greater than 400?", "False"),
+    ("What is 100 - 37, and is the result less than 70?", "True"),
+    ("What is 12 * 12, and is the result equal to 144?", "True"),
+    ("What is 500 / 10, and is the result greater than 40?", "True"),
+    ("What is 15 + 25, and is the result less than 50?", "True"),
 ]
 
 
@@ -47,19 +47,22 @@ def evaluate():
     print(f"Score: {correct}/{len(EVAL_TASKS)}")
     print(f"Average reward: {total_reward / len(EVAL_TASKS):.2f}")
 
+
 def evaluate_multistep():
-    for task in MULTISTEP_TASKS:
+    for task, expected_answer in MULTISTEP_TASKS:
         result = agent(task)
+
+        reward = calculate_multistep_reward(
+            result["answer"],
+            expected_answer
+        )
 
         print("\nTASK:", task)
         print("STEPS:")
 
         for i, step in enumerate(result["steps"], 1):
-            print(
-                i,
-                step["action"],
-                "→",
-                step["observation"]
-            )
+            print(i, step["action"], "→", step["observation"])
 
         print("ANSWER:", result["answer"])
+        print("EXPECTED:", expected_answer)
+        print("REWARD:", reward)
