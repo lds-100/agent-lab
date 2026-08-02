@@ -2,5 +2,10 @@ def calculator(expression):
     return eval(expression)
 
 
-result = calculator("37 * 48")
+def agent(task):
+    print("Agent received:", task)
+
+
+task = "What is 12 * 25?"
+result = agent(task)
 print(result)
