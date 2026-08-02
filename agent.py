@@ -5,7 +5,7 @@ def agent(task):
     messages = [
     {
         "role": "system",
-        "content": "You have access to a calculator. When arithmetic is needed, respond with CALL_CALCULATOR(expression)."
+        "content": "Tools available: calculator(expression) for arithmetic; lookup(topic) for information. Choose the appropriate tool."
     },
     {"role": "user", "content": task}
     ]
