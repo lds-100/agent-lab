@@ -160,8 +160,8 @@ Let $a$ be the tool selected by the model and $a^*$ be the expected tool. The re
 $$
 R(a,a^*) =
 \begin{cases}
-1 & \text{if } a=a^* \
-0 & \text{otherwise}.
+1 & \text{if } a=a^* \\
+0 & \text{otherwise}
 \end{cases}
 $$
 
@@ -253,23 +253,21 @@ Therefore:
 
 $$
 \text{Tool-selection accuracy}
-==============================
-
-# \frac{9}{10}
-
-# 0.90
-
-90%.
+=
+\frac{9}{10}
+=
+0.90
+=
+90\%.
 $$
 
 The average reward is also:
 
 $$
 \bar{R}
-=======
-
-# \frac{9}{10}
-
+=
+\frac{9}{10}
+=
 0.90.
 $$
 
