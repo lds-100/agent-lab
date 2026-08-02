@@ -159,11 +159,13 @@ Let $a$ be the tool selected by the model and $a^*$ be the expected tool.
 
 The reward function is:
 
-$R(a,a^*) =
+$$
+R(a,a^{*}) =
 \begin{cases}
-1, & a = a^* \\
-0, & a \ne a^*
-\end{cases}$
+1 & \text{if } a = a^{*} \\
+0 & \text{otherwise}
+\end{cases}
+$$
 
 Thus, for a set of $N$ evaluation tasks, the average reward is:
 
