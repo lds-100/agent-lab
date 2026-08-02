@@ -34,8 +34,3 @@ def agent(task):
         return result
 
     return answer
-
-task = "What is 12 * 25?"
-result = agent(task)
-
-print(result)
