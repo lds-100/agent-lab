@@ -38,6 +38,27 @@ The central research question is:
 
 The present work addresses the first part of that question: building the environment and measuring the untrained baseline.
 
+## 1.1 Motivation
+
+A central motivation for this project is the **credit assignment problem** in reinforcement learning.
+
+A tool-using agent may make many sequential decisions before receiving a final reward:
+
+$$
+s_0 \rightarrow a_0 \rightarrow s_1 \rightarrow a_1 \rightarrow \cdots \rightarrow s_T \rightarrow R
+$$
+
+where $s_t$ is the state, $a_t$ is the action, and $R$ is the final reward.
+
+If the agent succeeds, which earlier decisions contributed to that success? If it fails, which decisions contributed to the failure? This becomes increasingly difficult as tasks become longer and rewards become more delayed.
+
+We begin with a deliberately small version of this problem: an agent that selects tools, receives observations, and makes sequential decisions. The current work establishes the environment, trajectory representation, rewards, and untrained baselines needed to study credit assignment later.
+
+The longer-term question is:
+
+> **When an agent receives a reward only after a sequence of tool-use decisions, how can reinforcement learning improve those decisions?**
+
+
 ---
 
 ## 2. Experimental Environment
@@ -155,91 +176,33 @@ The current environment allows the model to make repeated tool calls, although t
 
 The initial single-step reward is intentionally simple.
 
-Let $a$ be the tool selected by the model and $a_{\text{expected}}$ be the expected tool.
-
-The reward function is:
+Let $a$ be the tool selected by the model and $a_{\text{expected}}$ be the expected tool. The reward is:
 
 $$
 R(a,a_{\text{expected}}) =
 \begin{cases}
-1 & \text{if } a = a_{\text{expected}} \\
+1 & \text{if } a = a_{\text{expected}} \
 0 & \text{otherwise}
 \end{cases}
 $$
 
 Thus, for a set of $N$ evaluation tasks, the average reward is:
 
-$$
-\bar{R} = \frac{1}{N}\sum_{i=1}^{N} R_i
-$$
+$\bar{R} = \frac{1}{N}\sum_{i=1}^{N}R_i$.
 
 For multi-step tasks, the current reward checks whether the model's final answer matches the expected answer:
 
 $$
 R =
 \begin{cases}
-1 & \text{if the final answer is correct} \\
+1 & \text{if the final answer is correct} \
 0 & \text{otherwise}
 \end{cases}
 $$
 
-This reward is deliberately simple. It gives us a measurable baseline without introducing additional assumptions about how the model should behave internally.
+This reward is deliberately simple. In particular, the current multi-step reward does **not** penalize unnecessary tool calls. As a result, an agent can receive a reward of 1 even if it reaches the correct answer through an inefficient sequence of actions.
 
-More sophisticated rewards are outside the scope of the current experiment.
-
----
-
-## 5. Trajectory Representation
-
-Each agent run is stored as a trajectory.
-
-A trajectory is the sequence of actions and observations produced while solving one task.
-
-For a single-step task, the representation is:
-
-```json
-{
-    "task": "What is 37 * 48?",
-    "action": "CALL_CALCULATOR(37*48)",
-    "tool": "calculator",
-    "observation": 1776,
-    "answer": "1776",
-    "reward": 1
-}
-```
-
-For multi-step tasks, the trajectory contains multiple steps:
-
-```json
-{
-    "task": "...",
-    "steps": [
-        {
-            "action": "CALL_CALCULATOR(...)",
-            "tool": "calculator",
-            "observation": 391
-        }
-    ],
-    "answer": "...",
-    "reward": 0
-}
-```
-
-A trajectory can be represented more generally as:
-
-$$
-\tau =
-(s_0,a_0,o_0,s_1,a_1,o_1,\ldots,s_T).
-$$
-
-Here:
-
-* $s_t$ is the state at step $t$.
-* $a_t$ is the action selected by the model.
-* $o_t$ is the observation returned by the environment.
-* $T$ is the final step of the episode.
-
-This representation preserves the interaction history needed to analyze the model's behavior and provides a natural data structure for future reinforcement learning experiments.
+This distinction is important for the eventual reinforcement learning experiment. A richer reward could distinguish between simply completing a task and completing it efficiently.
 
 ---
 
@@ -253,7 +216,7 @@ The model selected the expected tool on 9 of the 10 tasks.
 
 Therefore, the tool-selection accuracy is:
 
-$9/10 = 0.90 = 90\%$.
+$9/10 = 0.90 = 90%$.
 
 The average reward is:
 
@@ -265,15 +228,13 @@ The model made one incorrect tool decision on the task:
 
 The expected tool was lookup, but the model did not select the lookup tool.
 
-The resulting dataset has been frozen as the single-step baseline.
+The resulting dataset has been frozen as:
 
-```text
-baseline_trajectories.jsonl
-```
+`baseline_trajectories.jsonl`
 
 ---
 
-## 6.2 Multi-Step Baseline
+### 6.2 Multi-Step Baseline
 
 The untrained model was evaluated on five multi-step tasks.
 
@@ -283,55 +244,137 @@ $0, 0, 1, 1, 0$.
 
 Therefore, the average reward is:
 
-$\bar{R} = (0 + 0 + 1 + 1 + 0) / 5 = 2/5 = 0.40$.
+$\bar{R} = (0 + 0 + 1 + 1 + 0)/5 = 2/5 = 0.40$.
 
 Thus, the current multi-step baseline reward is **40%**.
 
-The model's behavior illustrates an important difference between single-step and multi-step tasks.
+The trajectories reveal several distinct failure modes.
 
-For example, on one task the model correctly calculated:
+#### Incorrect reasoning after a correct calculation
 
-$23 \times 17 = 391$,
+For the task:
 
-but then produced an incorrect conclusion about whether $391 > 400$.
+> What is 23 * 17, and is the result greater than 400?
 
-On another task, the model correctly calculated:
+the model correctly calculated:
+
+$23 \times 17 = 391$.
+
+However, it then repeated the same calculator call and ultimately produced the incorrect conclusion that 391 was greater than 400.
+
+The calculator observation was therefore correct, but the model failed to use that observation correctly when producing the final answer.
+
+#### Incorrect interpretation of a comparison
+
+For:
+
+> What is 100 - 37, and is the result less than 70?
+
+the model correctly calculated:
+
+$100 - 37 = 63$.
+
+It then produced the incorrect conclusion that 63 was not less than 70.
+
+Again, the arithmetic tool produced the correct observation, but the final reasoning was incorrect.
+
+#### Correct multi-step reasoning
+
+For:
+
+> What is 12 * 12, and is the result equal to 144?
+
+the model calculated:
 
 $12 \times 12 = 144$
 
-and produced the expected answer.
+and produced the correct answer.
 
-The model also sometimes made redundant or inappropriate tool calls, demonstrating that having access to tools does not guarantee that the model will use them effectively across multiple steps.
+This task received reward 1.
 
-The multi-step dataset has been frozen as the untrained multi-step baseline:
+#### Unnecessary lookup after a calculator observation
 
-`baseline_multistep_trajectories.jsonl`
+A particularly notable behavior occurred on:
+
+> What is 500 / 10, and is the result greater than 40?
+
+The model first calculated:
+
+$500 / 10 = 50$.
+
+It then made a lookup call to determine whether 50 was greater than 40.
+
+This lookup call was unnecessary because the calculator observation already contained sufficient information to answer the question:
+
+$50 > 40 \rightarrow \text{True}$.
+
+The final answer was correct, so the trajectory received reward 1 under the current reward function.
+
+This exposes a limitation of the current reward design: **correctness alone does not distinguish efficient tool use from unnecessary tool use.**
+
+#### Another unnecessary lookup attempt
+
+For:
+
+> What is 15 + 25, and is the result less than 50?
+
+the model correctly calculated:
+
+$15 + 25 = 40$.
+
+However, instead of directly comparing 40 with 50, it produced:
+
+`CALL LOOKUP(result < 50)`
+
+and did not complete the task correctly.
+
+This provides another example of the model treating the lookup tool as a possible general-purpose mechanism for numerical comparison.
+
+Because the current task set contains only five multi-step examples, these observations should be treated as preliminary rather than evidence of a general rule about the model's behavior.
 
 ---
 
 ## 7. Discussion
 
-The current results establish two different baseline behaviors.
+The single-step and multi-step results show an important difference in the behavior of the untrained model.
 
-For single-step tool selection, the untrained model performs relatively well:
+For single-step tool selection, the model achieved:
 
-$$
-90% \text{ tool-selection accuracy}.
-$$
+$90%$ accuracy.
 
-However, performance decreases substantially when the task requires multiple decisions:
+For the five multi-step tasks, the model achieved:
 
-$$
-40% \text{ average reward}.
-$$
+$40%$ average reward.
 
-This difference motivates the eventual reinforcement learning experiment.
+The trajectories suggest that the difficulty of multi-step tool use is not limited to choosing the correct tool initially. The model must also interpret observations, determine whether another action is necessary, and produce a correct final answer.
 
-The multi-step setting introduces a larger decision space. A model must not only select a useful tool, but potentially decide whether another tool call is necessary, what input to provide to that tool, and how to interpret the resulting observation.
+Several behaviors are visible in the current trajectories.
 
-Importantly, the current results do **not** demonstrate that reinforcement learning improves tool use. No RL training has yet been performed.
+First, the model can correctly use the calculator and produce accurate intermediate results. For example:
 
-Instead, they establish the reference point against which future training can be evaluated.
+$12 \times 12 = 144$
+
+and:
+
+$500 / 10 = 50$.
+
+Second, correct intermediate results do not always lead to correct final answers. In the 23 * 17 task, the model obtained the correct value 391 but incorrectly concluded that it was greater than 400.
+
+Third, the model sometimes makes additional tool calls when no additional information is required. In particular, it sometimes uses the lookup tool to answer numerical comparisons after the calculator has already produced the relevant number.
+
+This behavior is important because it suggests that sequential tool use involves more than simple tool selection. A useful agent must also learn **when to stop using tools** and **when the current observation is sufficient to complete the task**.
+
+The current reward function does not capture this distinction. A trajectory that reaches the correct answer after an unnecessary lookup receives the same reward as a trajectory that reaches the answer directly.
+
+This motivates richer reward functions in future experiments. For example, a future reward could combine task correctness with tool-use efficiency:
+
+$R = R_{\text{correct}} - \lambda C_{\text{unnecessary}}$,
+
+where $C_{\text{unnecessary}}$ represents unnecessary tool calls and $\lambda$ controls their penalty.
+
+Such a reward would encourage the model to maximize correctness while reducing unnecessary actions.
+
+Importantly, no reinforcement learning training has yet been performed. The current results therefore establish only the behavior of the untrained baseline. They do not demonstrate that reinforcement learning will improve performance.
 
 ---
 
@@ -339,13 +382,21 @@ Instead, they establish the reference point against which future training can be
 
 This experiment is intentionally small.
 
-The current environment has only two tools and a small number of evaluation tasks. The tasks are also relatively simple compared with real-world agent tasks.
+The current environment has only two tools and a small number of evaluation tasks. The multi-step evaluation contains only five tasks, so individual behaviors should not be interpreted as statistically strong evidence about the model as a whole.
 
-The reward functions are binary and primarily measure tool selection or final-answer correctness. They do not yet distinguish between efficient and inefficient tool use.
+The current reward functions are also binary. The single-step reward measures whether the expected tool was selected, while the multi-step reward measures final-answer correctness.
 
-The current experiment also does not evaluate generalization to a larger unseen task distribution.
+Neither reward currently captures:
 
-These limitations are intentional at this stage. The goal is to create a simple environment in which changes in tool-use behavior can be measured clearly.
+* unnecessary tool calls,
+* invalid tool calls,
+* redundant tool calls,
+* the number of steps required,
+* or whether an intermediate observation was used correctly.
+
+The current lookup tool also acts as a relatively broad information-retrieval mechanism. This makes it possible for the model to attempt to use lookup for tasks, such as simple numerical comparisons, where no external information is required.
+
+These limitations are useful for the current research stage because they expose specific behaviors that can later be incorporated into a more precise reward and environment design.
 
 ---
 
@@ -362,46 +413,22 @@ $$
 
 The eventual objective will be to learn a policy:
 
-$$
-\pi_\theta(a_t \mid s_t),
-$$
+$\pi_\theta(a_t \mid s_t)$,
 
 which represents the probability of selecting action $a_t$ given the current state $s_t$.
-
-This formalization will allow us to study how training changes the model's action-selection behavior.
 
 Future experiments will investigate:
 
 * More robust multi-step tasks
+* Larger evaluation sets
 * More informative reward functions
-* Unnecessary and invalid tool-call penalties
+* Penalties for unnecessary tool calls
+* Penalties for invalid tool calls
+* More explicit stopping behavior
 * Reinforcement learning methods such as REINFORCE
 * Credit assignment across multiple tool-use decisions
-* Exploration of alternative tool-use sequences
 * Comparison of trained and untrained policies
 
-The key outcome of interest will be whether training produces measurable improvements in sequential tool-use behavior.
+A particularly important question is whether a richer reward can teach the model not only to produce correct answers, but also to make better sequential decisions about **which tool to use, when to use it, and when no further tool call is necessary**.
 
----
-
-## 10. Conclusion
-
-We built a small tool-use environment around Qwen 2.5 1.5B Instruct with calculator and lookup tools. The environment supports both single-step and basic multi-step interactions.
-
-The untrained model achieved:
-
-$$
-\text{Single-step accuracy} = 90%
-$$
-
-and:
-
-$$
-\text{Multi-step average reward} = 40%.
-$$
-
-These results establish frozen baselines for future reinforcement learning experiments.
-
-The next stage is to formalize the sequential decision structure and investigate whether reinforcement learning can improve the model's tool-use policy.
-
-The broader goal is to understand whether a small language model can learn better sequential tool-use behavior through reinforcement learning, rather than simply improving its general ability to answer questions.
+The eventual comparison will be between the frozen untrained baseline and the trained policy.
