@@ -1,17 +1,40 @@
 # agent-lab
+
 A research sandbox for training, evaluating, and understanding tool-using language-model agents.
 
 # Project 0 — Tiny Tool-Using Agent
 
-A small research project exploring whether reinforcement learning can improve an LLM's sequential tool-use decisions without changing the underlying model.
+A small research project exploring whether reinforcement learning (RL) can improve an LLM's ability to make better tool-use decisions without changing the underlying model.
 
-The goal is not to make a tiny model generally smarter. Instead, we want to understand how much we can improve a model's performance on a specific tool-use task through environment design, rewards, evaluation, and eventually RL training.
+We use **Qwen 2.5 1.5B Instruct** and build a small environment around it.
 
 ## Research Question
 
 **Can reinforcement learning improve a language model's sequential tool-use policy?**
 
-We use **Qwen 2.5 1.5B Instruct** as the underlying model and build a small environment around it.
+Here, a **policy** simply means the model's decisions about what action to take next.
+
+We are deliberately building the project in stages. The current work is the **untrained baseline**, not RL training.
+
+```text
+✅ Single-tool baseline
+        ↓
+✅ Two tools
+        ↓
+✅ Rewards + trajectories
+        ↓
+✅ Evaluation
+        ↓
+✅ Multi-step tasks
+        ↓
+🔜 RL environment
+        ↓
+🔜 RL training
+        ↓
+🔜 Compare trained vs. untrained
+```
+
+The goal is to first understand how well the untrained model uses tools, then measure whether training improves that behavior.
 
 ---
 
@@ -25,31 +48,22 @@ The agent currently has two tools:
 The basic interaction is:
 
 ```text
-             Task
-               │
-               ▼
-             Qwen
-               │
-          choose action
-               │
-        ┌──────┴──────┐
-        ▼             ▼
-   Calculator       Lookup
-        │             │
-        └──────┬──────┘
-               │
-          Observation
-               │
-               ▼
-             Qwen
-               │
-               ▼
-          Final Answer
+Task
+ ↓
+Qwen
+ ↓
+Choose tool
+ ↓
+Tool
+ ↓
+Observation
+ ↓
+Qwen
+ ↓
+Final answer
 ```
 
-The agent can now also make multiple tool-use decisions within a single episode.
-
-A multi-step episode looks like:
+For multi-step tasks, Qwen can make another tool decision after receiving an observation:
 
 ```text
 Task
@@ -62,10 +76,10 @@ Qwen → Tool
  ↓
 Observation
  ↓
-Qwen → Final Answer
+Qwen → Final answer
 ```
 
-The model is not trained yet. We are currently measuring the behavior of the untrained baseline.
+This is the behavior we eventually want to improve through RL.
 
 ---
 
@@ -73,7 +87,7 @@ The model is not trained yet. We are currently measuring the behavior of the unt
 
 We created a 10-task evaluation set covering calculator and lookup requests.
 
-Current untrained baseline:
+The untrained model currently achieves:
 
 **9 / 10 correct — 90% average reward**
 
@@ -84,62 +98,40 @@ correct tool → 1
 incorrect/no tool → 0
 ```
 
-This measures whether the untrained model selects the appropriate tool.
+This gives us a measurable **baseline**: the untrained model's performance that future versions can be compared against.
 
-The baseline has been frozen as:
+The baseline is frozen as:
 
 ```text
 baseline_trajectories.jsonl
 ```
 
-This file is version-controlled and should not be modified during later experiments.
-
 ---
 
-## Trajectory Representation
+## Trajectories
 
-Each single-step agent run is represented as:
+A **trajectory** is the sequence of actions and observations produced during one task.
+
+A single-step trajectory looks like:
 
 ```json
 {
-    "task": "...",
-    "action": "...",
-    "tool": "...",
-    "observation": "...",
-    "answer": "...",
+    "task": "What is 37 * 48?",
+    "action": "CALL_CALCULATOR(37*48)",
+    "tool": "calculator",
+    "observation": 1776,
+    "answer": "1776",
     "reward": 1
 }
 ```
 
-For example:
-
-```text
-Task:
-What is 37 * 48?
-
-Action:
-CALL_CALCULATOR(37*48)
-
-Tool:
-calculator
-
-Observation:
-1776
-
-Answer:
-1776
-
-Reward:
-1
-```
-
-This representation gives us structured records of the agent's behavior.
+These records let us inspect what the agent did and will eventually provide the data structure needed for RL.
 
 ---
 
 ## Multi-Step Baseline
 
-We introduced a small set of five tasks requiring the model to reason about the result of a previous calculation.
+We created five tasks where the model must use a calculation to answer a follow-up question.
 
 Example:
 
@@ -147,63 +139,52 @@ Example:
 What is 23 * 17, and is the result greater than 400?
 ```
 
-A successful sequence could look like:
+A successful sequence could be:
 
 ```text
-Task
- ↓
 CALL_CALCULATOR(23*17)
- ↓
+        ↓
 391
- ↓
+        ↓
 CALL_CALCULATOR(391 > 400)
- ↓
+        ↓
 False
- ↓
+        ↓
 Final answer
 ```
 
-The untrained model does not consistently make the correct sequence of decisions. Some tasks receive one tool call, some receive multiple calls, and some calls are redundant or incorrect.
-
-The current five-task untrained multi-step baseline achieved:
+The untrained model currently achieves:
 
 **2 / 5 rewarded — 40%**
 
-The multi-step baseline has been frozen as:
+The frozen multi-step baseline is:
 
 ```text
 baseline_multistep_trajectories.jsonl
 ```
 
-This is also version-controlled and should not be modified.
-
-The multi-step reward currently measures final-answer correctness using a simple `True` / `False` or `Yes` / `No` check.
+The current multi-step reward checks whether the final answer matches the expected `True` or `False` result.
 
 ---
 
-## Dataset Structure
+## Dataset Generation
 
-Dataset writing is separated from evaluation.
+Evaluation and dataset generation are kept separate so that running an evaluation does not accidentally change our frozen baselines.
 
-### `dataset.py`
+```text
+evaluate.py
+→ measures performance
 
-Responsible for saving trajectories to JSONL.
+generate_dataset.py
+→ runs tasks and creates datasets
 
-### `generate_dataset.py`
-
-Responsible for running tasks, calculating rewards, and generating datasets.
-
-### `evaluate.py`
-
-Responsible only for evaluating model performance and printing metrics.
-
-This separation prevents ordinary evaluation runs from accidentally modifying frozen baseline datasets.
+dataset.py
+→ saves trajectories as JSONL
+```
 
 ---
 
 ## Project Structure
-
-Current structure:
 
 ```text
 agent-lab/
@@ -226,43 +207,37 @@ agent-lab/
 ### Completed
 
 * Load Qwen 2.5 1.5B Instruct
-* Separate model loading from agent execution
-* Build calculator tool
-* Add lookup tool
-* Implement tool-selection protocol
-* Execute selected tools
-* Feed tool observations back to Qwen
+* Build calculator and lookup tools
+* Implement tool selection
+* Execute tools and return observations to Qwen
 * Generate final answers
 * Build single-step evaluation set
-* Implement single-step reward
-* Represent agent trajectories
-* Establish 90% single-step baseline
-* Save and freeze single-step baseline trajectories
-* Introduce multi-step agent episodes
-* Build five-task multi-step evaluation set
-* Implement initial multi-step reward
-* Save and freeze multi-step baseline trajectories
+* Implement basic rewards
+* Represent and save trajectories
+* Establish and freeze the 90% single-step baseline
+* Build and test multi-step tasks
+* Establish and freeze the multi-step baseline
 * Separate evaluation from dataset generation
 
-### Not Yet Started
+### Next
 
-* Formal RL state/action/observation interface
-* More robust multi-step task design
-* More sophisticated reward design
-* RL training loop
+* Formalize the RL environment
+* Define states, actions, observations, and rewards
+* Improve multi-step task design
+* Build the RL training loop
 * Train the model
-* Compare trained vs. untrained policies
+* Compare trained vs. untrained performance
 
 ---
 
 ## Roadmap
 
-### 1. Baseline Environment
+### 1. Build the environment
 
 ```text
 Task
  ↓
-Tool choice
+Qwen
  ↓
 Tool
  ↓
@@ -275,73 +250,19 @@ Reward
 
 **Complete.**
 
----
+### 2. Introduce sequential decisions
 
-### 2. Trajectory Dataset
+Allow the model to make multiple tool-use decisions before producing a final answer.
 
-Save agent interactions as structured data:
+**Initial version complete.**
 
-```text
-state → action → observation → reward
-```
+### 3. Build the RL environment
 
-**Initial dataset work is complete.**
+Formalize what the model sees, what actions it can take, what observations it receives, and how rewards are assigned.
 
-We now have frozen single-step and multi-step untrained datasets.
+### 4. Train with RL
 
----
-
-### 3. Multi-Step Environment
-
-Allow the agent to make repeated decisions:
-
-```text
-Task
- ↓
-Qwen → Tool A
- ↓
-Observation
- ↓
-Qwen → Tool B
- ↓
-Observation
- ↓
-Qwen → Final answer
- ↓
-Reward
-```
-
-A basic two-step environment has been implemented and tested.
-
-The next step is to formalize the RL episode representation and state/action interface.
-
----
-
-### 4. RL Training
-
-Eventually, the environment will produce trajectories such as:
-
-```text
-State
- ↓
-Action
- ↓
-Observation
- ↓
-Next State
- ↓
-Action
- ↓
-...
- ↓
-Terminal State
- ↓
-Reward
-```
-
-The model's policy will then be trained using those rewards.
-
-The eventual loop is:
+Eventually:
 
 ```text
 Task
@@ -367,47 +288,20 @@ RL update
 Improved policy
 ```
 
----
-
-### 5. Evaluation
+### 5. Compare
 
 Compare the trained model against the frozen untrained baselines.
 
-Important metrics will include:
+Key measurements:
 
-* Tool-selection accuracy
-* Task success rate
-* Sequential decision accuracy
+* Correct tool selection
+* Correct tool sequences
+* Task completion
 * Number of tool calls
-* Invalid tool calls
-* Redundant tool calls
+* Invalid or unnecessary calls
 * Reward
 * Performance on unseen tasks
 
-The central question is whether training produces a measurable improvement in tool-use behavior, rather than simply making the model better at answering questions in general.
+The central question remains:
 
----
-
-## Philosophy
-
-Keep the environment deliberately small.
-
-The purpose of Project 0 is to understand the mechanics of:
-
-```text
-model
- ↓
-environment
- ↓
-action
- ↓
-observation
- ↓
-reward
- ↓
-learning
-```
-
-before moving to larger models, more complicated tools, or sophisticated RL algorithms.
-
-The important experimental principle is to **freeze the untrained baselines before training** so that later improvements can be measured against a stable reference.
+> **Can reinforcement learning improve Qwen's sequential tool-use decisions?**
