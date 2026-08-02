@@ -14,7 +14,11 @@ model = AutoModelForCausalLM.from_pretrained(
 
 def agent(task):
     messages = [
-        {"role": "user", "content": task}
+    {
+        "role": "system",
+        "content": "You have access to a calculator. When arithmetic is needed, respond with CALL_CALCULATOR(expression)."
+    },
+    {"role": "user", "content": task}
     ]
 
     prompt = tokenizer.apply_chat_template(
