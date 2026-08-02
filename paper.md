@@ -159,13 +159,11 @@ Let $a$ be the tool selected by the model and $a^*$ be the expected tool.
 
 The reward function is:
 
-$$
-R(a,a^*) =
+$R(a,a^*) =
 \begin{cases}
-1 & \text{if } a = a^* \\
-0 & \text{otherwise}
-\end{cases}
-$$
+1, & a = a^* \\
+0, & a \ne a^*
+\end{cases}$
 
 Thus, for a set of $N$ evaluation tasks, the average reward is:
 
@@ -273,56 +271,39 @@ baseline_trajectories.jsonl
 
 ---
 
-### 6.2 Multi-Step Baseline
+## 6.2 Multi-Step Baseline
 
 The untrained model was evaluated on five multi-step tasks.
 
 The rewards were:
 
-$$
-0,;0,;1,;1,;0.
-$$
+$0, 0, 1, 1, 0$.
 
-Therefore:
+Therefore, the average reward is:
 
-$$
-\bar{R}
-=======
+$\bar{R} = (0 + 0 + 1 + 1 + 0) / 5 = 2/5 = 0.40$.
 
-# \frac{0+0+1+1+0}{5}
-
-# \frac{2}{5}
-
-0.40.
-$$
-
-Thus the current multi-step baseline reward is **40%**.
+Thus, the current multi-step baseline reward is **40%**.
 
 The model's behavior illustrates an important difference between single-step and multi-step tasks.
 
 For example, on one task the model correctly calculated:
 
-$$
-23 \times 17 = 391,
-$$
+$23 \times 17 = 391$,
 
 but then produced an incorrect conclusion about whether $391 > 400$.
 
 On another task, the model correctly calculated:
 
-$$
-12 \times 12 = 144
-$$
+$12 \times 12 = 144$
 
 and produced the expected answer.
 
 The model also sometimes made redundant or inappropriate tool calls, demonstrating that having access to tools does not guarantee that the model will use them effectively across multiple steps.
 
-The multi-step dataset has been frozen as the untrained multi-step baseline.
+The multi-step dataset has been frozen as the untrained multi-step baseline:
 
-```text
-baseline_multistep_trajectories.jsonl
-```
+`baseline_multistep_trajectories.jsonl`
 
 ---
 
