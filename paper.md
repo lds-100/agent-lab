@@ -155,14 +155,14 @@ The current environment allows the model to make repeated tool calls, although t
 
 The initial single-step reward is intentionally simple.
 
-Let $a$ be the tool selected by the model and $a^*$ be the expected tool.
+Let $a$ be the tool selected by the model and $a_{\text{expected}}$ be the expected tool.
 
 The reward function is:
 
 $$
-R(a,a^{*}) =
+R(a,a_{\text{expected}}) =
 \begin{cases}
-1 & \text{if } a = a^{*} \\
+1 & \text{if } a = a_{\text{expected}} \\
 0 & \text{otherwise}
 \end{cases}
 $$
