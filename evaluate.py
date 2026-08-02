@@ -15,21 +15,13 @@ EVAL_TASKS = [
 ]
 
 MULTISTEP_TASKS = [
-    ("What is 23 * 17, and is the result greater than 400?", "False"),
-    ("What is 100 - 37, and is the result less than 70?", "True"),
-    ("What is 12 * 12, and is the result equal to 144?", "True"),
-    ("What is 500 / 10, and is the result greater than 40?", "True"),
-    ("What is 15 + 25, and is the result less than 50?", "True"),
-]
-
-MULTISTEP_TASKS = [
     {
         "task": "What is 23 * 17, and is the result greater than 400?",
         "expected_answer": "False",
         "expected_tools": ["calculator", "calculator"],
     },
     {
-        "task": "What is 100 - 37, and is the result less than 70?",
+        "task": "What is 100 - 37, and is the result less than 70? Answer only True or False.",
         "expected_answer": "True",
         "expected_tools": ["calculator", "calculator"],
     },
