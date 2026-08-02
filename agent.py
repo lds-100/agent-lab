@@ -12,13 +12,23 @@ SYSTEM_PROMPT_TOOLS = (
     "Output nothing else."
 )
 
+SYSTEM_PROMPT_FINAL = (
+    "Use the tool result to answer the user's original question. "
+    "Give only the final answer."
+)
+
 def agent(task):
+
+    # 1. Qwen chooses a tool
     messages = [
-    {
-        "role": "system",
-        "content": SYSTEM_PROMPT_TOOLS
-    },
-    {"role": "user", "content": task}
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT_TOOLS,
+        },
+        {
+            "role": "user",
+            "content": task,
+        },
     ]
 
     prompt = tokenizer.apply_chat_template(
@@ -34,28 +44,68 @@ def agent(task):
         max_new_tokens=50,
     )
 
-    answer = tokenizer.decode(
-    outputs[0][inputs["input_ids"].shape[-1]:],
-    skip_special_tokens=True,
+    action = tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[-1]:],
+        skip_special_tokens=True,
+    ).strip()
+
+    # 2. Execute the chosen tool
+    if action.startswith("CALL_CALCULATOR"):
+        expression = action[len("CALL_CALCULATOR("):-1]
+        result = calculator(expression)
+        tool = "calculator"
+
+    elif action.startswith("CALL_LOOKUP"):
+        topic = action[len("CALL_LOOKUP("):-1]
+        result = lookup(topic)
+        tool = "lookup"
+
+    else:
+        return {
+            "tool": "none",
+            "result": None,
+            "answer": action,
+        }
+
+    # 3. Qwen receives the tool observation
+    final_messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT_FINAL,
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Original question: {task}\n"
+                f"Tool used: {tool}\n"
+                f"Tool result: {result}\n"
+                "Now give the final answer."
+            ),
+        },
+    ]
+
+    # 4. Qwen produces the final answer
+    prompt = tokenizer.apply_chat_template(
+        final_messages,
+        tokenize=False,
+        add_generation_prompt=True,
     )
 
-    if answer.startswith("CALL_CALCULATOR"):
-        expression = answer[len("CALL_CALCULATOR("):-1]
-        result = calculator(expression)
-        return {
-                "tool": "calculator",
-                "result": result,
-            }
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-    if answer.startswith("CALL_LOOKUP"):
-        topic = answer[len("CALL_LOOKUP("):-1]
-        result = lookup(topic)
-        return {
-                "tool": "lookup",
-                "result": result,
-            }
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=50,
+    )
 
+    final_answer = tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[-1]:],
+        skip_special_tokens=True,
+    ).strip()
+
+    # 5. Return the full trajectory for evaluation
     return {
-        "tool": "none",
-        "result": answer,
+        "tool": tool,
+        "result": result,
+        "answer": final_answer,
     }
