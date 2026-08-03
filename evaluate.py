@@ -224,10 +224,14 @@ def check_argument_correct(actual, expected):
 
     return False
 
-def evaluate_tool_trajectory(actual_steps, expected_tools, reference_actions):
+def evaluate_tool_trajectory(
+    steps,
+    expected_tools,
+    reference_actions=None,
+):
     actual_actions = [
         step["action"].strip()
-        for step in actual_steps
+        for step in steps
     ]
 
     actual_tools = []
@@ -243,10 +247,16 @@ def evaluate_tool_trajectory(actual_steps, expected_tools, reference_actions):
 
     tool_selection_correct = actual_tools == expected_tools
 
-    argument_correct_per_call = [
-        check_argument_correct(actual, expected)
-        for actual, expected in zip(actual_actions, reference_actions)
-    ]
+    argument_correct_per_call = []
+
+    if reference_actions is not None:
+        argument_correct_per_call = [
+            check_argument_correct(actual, expected)
+            for actual, expected in zip(
+                actual_actions,
+                reference_actions,
+            )
+        ]
 
     known_argument_results = [
         result
@@ -272,16 +282,16 @@ def evaluate_tool_trajectory(actual_steps, expected_tools, reference_actions):
 
     missing_required_steps = max(
         0,
-        len(expected_tools) - expected_index
+        len(expected_tools) - expected_index,
     )
 
     unnecessary_calls = max(
         0,
-        len(actual_tools) - len(expected_tools)
+        len(actual_tools) - len(expected_tools),
     )
 
     return {
-        "tool_selection_correct": actual_tools == expected_tools,
+        "tool_selection_correct": tool_selection_correct,
         "argument_correct": argument_correct,
         "argument_correct_per_call": argument_correct_per_call,
         "order_correct": order_correct,
