@@ -311,15 +311,14 @@ def evaluate_multistep_correctness():
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
-        reward = calculate_multistep_reward(
-            result["answer"],
-            task["expected_answer"],
-        )
-
         answer_correct = judge_answer(
             task["task"],
             task["expected_answer"],
             result["answer"],
+        )
+
+        reward = calculate_multistep_reward(
+            answer_correct
         )
 
         evaluation = {
@@ -338,7 +337,12 @@ def evaluate_multistep_correctness():
         print("STEPS:")
 
         for i, step in enumerate(result["steps"], 1):
-            print(i, step["action"], "→", step["observation"])
+            print(
+                i,
+                step["action"],
+                "→",
+                step["observation"],
+            )
 
         print("ANSWER:", result["answer"])
         print("EXPECTED:", task["expected_answer"])
