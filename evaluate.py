@@ -94,7 +94,7 @@ MULTISTEP_TASKS_ORIGINAL = [
     },
 ]
 
-MULTISTEP_TASKS = [
+MULTISTEP_TASKS_GENERAL = [
     {
         "task": "Who wrote Romeo and Juliet, and what year was William Shakespeare born?",
         "expected_answer": "1564",
@@ -134,6 +134,49 @@ MULTISTEP_TASKS = [
         "task": "What year did William Shakespeare die, and how many years after his birth was that?",
         "expected_answer": "52",
         "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+]
+
+MULTISTEP_TASKS = [
+    {
+        "task": "Where was the profile subject born, and what book did they write?",
+        "expected_answer": "Portland, Oregon; The Glass Harbor",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "What book did the profile subject write, and when was it published?",
+        "expected_answer": "The Glass Harbor; 2015",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "When was the profile subject born, and when did they die?",
+        "expected_answer": "1987; 2021",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "When was the profile subject born, when did they die, and how old were they when they died?",
+        "expected_answer": "1987; 2021; 34",
+        "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "Where was the profile subject born, what book did they write, and when was it published?",
+        "expected_answer": "Portland, Oregon; The Glass Harbor; 2015",
+        "expected_tools": ["lookup", "lookup", "lookup"],
+    },
+    {
+        "task": "What book did the profile subject write, when was it published, when did they die, and how many years before their death was the book published?",
+        "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+        "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "When was the profile subject born, where were they born, when did they die, and how old were they when they died?",
+        "expected_answer": "1987; Portland, Oregon; 2021; 34",
+        "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "What book did the profile subject write, when was it published, when did they die, and how many years after publication did they die?",
+        "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+        "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
     },
 ]
 
