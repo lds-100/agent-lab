@@ -1,4 +1,4 @@
-# from agent import agent
+from agent import agent
 from reward import (
     calculate_multistep_efficiency_reward,
     calculate_multistep_reward,
