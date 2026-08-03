@@ -511,13 +511,11 @@ $$
 \left[
 R(\tau)
 \sum_{t=0}^{T}
-\nabla_\theta
-\log
-\pi_\theta(a_t \mid s_t)
+\nabla_\theta \log \pi_\theta(a_t \mid s_t)
 \right],
 $$
 
-where \(\tau\) denotes a sampled trajectory and \(R(\tau)\) is the reward assigned to that trajectory.
+where $\tau$ denotes a sampled trajectory and $R(\tau)$ is the reward assigned to that trajectory.
 
 Although the equation appears complicated, the intuition is straightforward.
 
