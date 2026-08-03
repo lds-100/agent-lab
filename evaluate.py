@@ -1,5 +1,5 @@
-# from agent import agent
-# from model import model, tokenizer
+from agent import agent
+from model import model, tokenizer
 import re
 
 from reward import (
