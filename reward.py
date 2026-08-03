@@ -4,29 +4,16 @@ def calculate_reward(chosen_tool, expected_tool):
     return 0
 
 
-def calculate_multistep_reward(answer, expected_answer):
-    answer = answer.strip().lower()
-    expected_answer = expected_answer.strip().lower()
-
-    if expected_answer == "true":
-        return 1 if ("yes" in answer or "true" in answer) else 0
-
-    if expected_answer == "false":
-        return 1 if ("no" in answer or "false" in answer) else 0
-
-    return 1 if expected_answer in answer else 0
+def calculate_multistep_reward(answer_correct):
+    return 1 if answer_correct else 0
 
 
 def calculate_multistep_efficiency_reward(
-    answer,
-    expected_answer,
+    answer_correct,
     unnecessary_calls=0,
     invalid_calls=0,
 ):
-    reward = calculate_multistep_reward(
-        answer,
-        expected_answer,
-    )
+    reward = calculate_multistep_reward(answer_correct)
 
     reward -= 0.01 * unnecessary_calls
     reward -= 0.05 * invalid_calls

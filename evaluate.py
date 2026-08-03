@@ -1,4 +1,6 @@
 from agent import agent
+from model import model, tokenizer
+from env import calculator, lookup
 from reward import (
     calculate_multistep_efficiency_reward,
     calculate_multistep_reward,
@@ -180,6 +182,88 @@ MULTISTEP_TASKS = [
     },
 ]
 
+def judge_answer(task, expected_answer, actual_answer):
+    """
+    Use Qwen to determine whether the agent's final answer
+    correctly answers the task.
+    """
+
+    judge_prompt = f"""
+You are evaluating the final answer produced by an AI agent.
+
+TASK:
+{task}
+
+EXPECTED ANSWER:
+{expected_answer}
+
+AGENT ANSWER:
+{actual_answer}
+
+Determine whether the AGENT ANSWER correctly answers the TASK.
+
+Rules:
+- Judge factual correctness, not exact wording.
+- Full sentences are acceptable.
+- Different formatting is acceptable.
+- The agent does not need to use the same wording as the expected answer.
+- All required facts must be present.
+- Missing a required fact means FALSE.
+- An incorrect fact means FALSE.
+- A contradictory fact means FALSE.
+- Extra explanation is acceptable if it does not introduce incorrect information.
+- Do not judge whether the agent used the correct tools.
+- Do not judge the efficiency of the tool calls.
+
+Return exactly one word:
+TRUE
+or
+FALSE
+""".strip()
+
+    prompt = tokenizer.apply_chat_template(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict answer evaluator. "
+                    "Return only TRUE or FALSE."
+                ),
+            },
+            {
+                "role": "user",
+                "content": judge_prompt,
+            },
+        ],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+    ).to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=5,
+        do_sample=False,
+    )
+
+    judgment = tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[-1]:],
+        skip_special_tokens=True,
+    ).strip().upper()
+
+    if judgment.startswith("TRUE"):
+        return True
+
+    if judgment.startswith("FALSE"):
+        return False
+
+    # If the judge fails to follow the format,
+    # treat the answer as incorrect.
+    return False
 
 def evaluate_single_step():
     results = []
@@ -227,7 +311,16 @@ def evaluate_multistep_correctness():
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
-        reward = calculate_multistep_reward(result["answer"], task["expected_answer"])
+        reward = calculate_multistep_reward(
+            result["answer"],
+            task["expected_answer"],
+        )
+
+        answer_correct = judge_answer(
+            task["task"],
+            task["expected_answer"],
+            result["answer"],
+        )
 
         evaluation = {
             "task": task["task"],
@@ -235,6 +328,7 @@ def evaluate_multistep_correctness():
             "expected_answer": task["expected_answer"],
             "steps": result["steps"],
             "expected_tools": task["expected_tools"],
+            "answer_correct": answer_correct,
             "reward": reward,
         }
 
@@ -248,6 +342,7 @@ def evaluate_multistep_correctness():
 
         print("ANSWER:", result["answer"])
         print("EXPECTED:", task["expected_answer"])
+        print("ANSWER CORRECT:", answer_correct)
         print("REWARD:", reward)
 
     return results
