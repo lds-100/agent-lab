@@ -1,6 +1,6 @@
 import json
-import evaluate
 
+import evaluate
 from evaluate import evaluate_tool_trajectory
 
 path = "baselines/baseline_multistep_trajectories_20260803_1.jsonl"
@@ -12,9 +12,7 @@ for item in trajectories:
     task = item["task"]
 
     task_data = next(
-        task_data
-        for task_data in evaluate.MULTISTEP_TASKS
-        if task_data["task"] == task
+        task_data for task_data in evaluate.MULTISTEP_TASKS if task_data["task"] == task
     )
 
     diagnostics = evaluate_tool_trajectory(

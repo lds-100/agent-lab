@@ -1,9 +1,7 @@
 from agent import agent
 from model import model, tokenizer
-from env import calculator, lookup
 from reward import (
     calculate_multistep_efficiency_reward,
-    calculate_multistep_reward,
     calculate_reward,
 )
 
@@ -160,6 +158,7 @@ MULTISTEP_TASKS = [
     },
 ]
 
+
 def judge_answer(task, expected_answer, actual_answer):
     """
     Judge whether the agent's final answer correctly answers the task.
@@ -176,11 +175,7 @@ def judge_answer(task, expected_answer, actual_answer):
     # call_lookup
     # CALL-LOOKUP
     # are all detected as tool calls.
-    normalized = (
-        actual
-        .replace("_", " ")
-        .replace("-", " ")
-    )
+    normalized = actual.replace("_", " ").replace("-", " ")
 
     # Reject empty answers.
     if not actual:
@@ -269,10 +264,14 @@ def judge_answer(task, expected_answer, actual_answer):
         do_sample=False,
     )
 
-    judgment = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[-1]:],
-        skip_special_tokens=True,
-    ).strip().upper()
+    judgment = (
+        tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1] :],
+            skip_special_tokens=True,
+        )
+        .strip()
+        .upper()
+    )
 
     if judgment.startswith("TRUE"):
         return True
@@ -282,6 +281,7 @@ def judge_answer(task, expected_answer, actual_answer):
 
     # Fail closed if the judge does not return TRUE/FALSE.
     return False
+
 
 def evaluate_single_step():
     results = []
@@ -339,6 +339,7 @@ def lookup_intent(action):
 
     return None
 
+
 def check_argument_correct(actual, expected):
     actual = "".join(actual.split())
     expected = "".join(expected.split())
@@ -351,15 +352,13 @@ def check_argument_correct(actual, expected):
 
     return False
 
+
 def evaluate_tool_trajectory(
     steps,
     expected_tools,
     reference_actions=None,
 ):
-    actual_actions = [
-        step["action"].strip()
-        for step in steps
-    ]
+    actual_actions = [step["action"].strip() for step in steps]
 
     actual_tools = []
     invalid_calls = 0
@@ -386,16 +385,10 @@ def evaluate_tool_trajectory(
         ]
 
     known_argument_results = [
-        result
-        for result in argument_correct_per_call
-        if result is not None
+        result for result in argument_correct_per_call if result is not None
     ]
 
-    argument_correct = (
-        all(known_argument_results)
-        if known_argument_results
-        else None
-    )
+    argument_correct = all(known_argument_results) if known_argument_results else None
 
     order_correct = True
     expected_index = 0
@@ -427,6 +420,7 @@ def evaluate_tool_trajectory(
         "unnecessary_calls": unnecessary_calls,
     }
 
+
 def evaluate_multistep_efficiency():
     results = []
 
@@ -446,7 +440,7 @@ def evaluate_multistep_efficiency():
             task["expected_tools"],
             task["reference_actions"],
         )
-        
+
         reward = calculate_multistep_efficiency_reward(
             answer_correct,
             tool_eval,

@@ -1,5 +1,5 @@
-from evaluate import MULTISTEP_TASKS
 from env import lookup
+from evaluate import MULTISTEP_TASKS
 
 
 def test_lookup_contract():
@@ -13,6 +13,7 @@ def test_lookup_contract():
 
     for query, expected in queries.items():
         assert lookup(query) == expected
+
 
 def test_profile_subject_facts():
     assert lookup("profile subject birth year") == "1987"

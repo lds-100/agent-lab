@@ -55,7 +55,7 @@ def agent(task, max_steps=4):
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
         outputs = model.generate(**inputs, max_new_tokens=50)
         return tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[-1]:],
+            outputs[0][inputs["input_ids"].shape[-1] :],
             skip_special_tokens=True,
         ).strip()
 
@@ -65,11 +65,11 @@ def agent(task, max_steps=4):
 
         # Execute the requested tool.
         if action.startswith("CALL_CALCULATOR"):
-            expression = action[len("CALL_CALCULATOR("):-1]
+            expression = action[len("CALL_CALCULATOR(") : -1]
             result = calculator(expression)
             tool = "calculator"
         elif action.startswith("CALL_LOOKUP"):
-            topic = action[len("CALL_LOOKUP("):-1]
+            topic = action[len("CALL_LOOKUP(") : -1]
             result = lookup(topic)
             tool = "lookup"
         else:
@@ -89,10 +89,12 @@ def agent(task, max_steps=4):
             }
         )
 
-        messages.extend([
-            {"role": "assistant", "content": action},
-            {"role": "user", "content": f"Tool result: {result}"},
-        ])
+        messages.extend(
+            [
+                {"role": "assistant", "content": action},
+                {"role": "user", "content": f"Tool result: {result}"},
+            ]
+        )
 
     # If we hit the step limit, ask the model for a final answer.
     messages.append({"role": "system", "content": SYSTEM_PROMPT_FINAL})

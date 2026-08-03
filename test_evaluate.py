@@ -1,7 +1,4 @@
-from evaluate import evaluate_tool_trajectory
-from evaluate import MULTISTEP_TASKS
-from evaluate import judge_answer
-
+from evaluate import MULTISTEP_TASKS, evaluate_tool_trajectory, judge_answer
 
 EXPECTED_TOOLS = ["calculator", "calculator"]
 
@@ -79,32 +76,44 @@ def test_multistep_tasks_are_defined():
 
 
 def test_judge_exact_answer():
-    assert judge_answer(
-        "What year was the profile subject born?",
-        "1987",
-        "1987",
-    ) is True
+    assert (
+        judge_answer(
+            "What year was the profile subject born?",
+            "1987",
+            "1987",
+        )
+        is True
+    )
 
 
 def test_judge_sentence_answer():
-    assert judge_answer(
-        "What year was the profile subject born?",
-        "1987",
-        "The profile subject was born in 1987.",
-    ) is True
+    assert (
+        judge_answer(
+            "What year was the profile subject born?",
+            "1987",
+            "The profile subject was born in 1987.",
+        )
+        is True
+    )
 
 
 def test_judge_wrong_answer():
-    assert judge_answer(
-        "What year was the profile subject born?",
-        "1987",
-        "The profile subject was born in 1990.",
-    ) is False
+    assert (
+        judge_answer(
+            "What year was the profile subject born?",
+            "1987",
+            "The profile subject was born in 1990.",
+        )
+        is False
+    )
 
 
 def test_judge_missing_fact():
-    assert judge_answer(
-        "When was the profile subject born and when did they die?",
-        "1987; 2021",
-        "The profile subject was born in 1987.",
-    ) is False
+    assert (
+        judge_answer(
+            "When was the profile subject born and when did they die?",
+            "1987; 2021",
+            "The profile subject was born in 1987.",
+        )
+        is False
+    )
