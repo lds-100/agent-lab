@@ -305,51 +305,193 @@ def evaluate_single_step():
     return results
 
 
-def evaluate_multistep_correctness():
-    results = []
+def judge_answer(task, expected_answer, actual_answer):
+    """
+    Judge whether the agent's final answer contains every required fact.
 
-    for task in MULTISTEP_TASKS:
-        result = agent(task["task"])
+    Uses simple deterministic rejection for obvious failures, then uses
+    the loaded Qwen model for semantic evaluation.
+    """
 
-        answer_correct = judge_answer(
-            task["task"],
-            task["expected_answer"],
-            result["answer"],
-        )
+    actual = actual_answer.strip().lower()
 
-        reward = calculate_multistep_reward(
-            answer_correct
-        )
+    # Obvious failures should not be passed to the LLM judge.
+    if not actual:
+        return False
 
-        evaluation = {
-            "task": task["task"],
-            "answer": result["answer"],
-            "expected_answer": task["expected_answer"],
-            "steps": result["steps"],
-            "expected_tools": task["expected_tools"],
-            "answer_correct": answer_correct,
-            "reward": reward,
-        }
+    if actual.startswith("call_lookup"):
+        return False
 
-        results.append(evaluation)
+    if actual.startswith("call_calculator"):
+        return False
 
-        print("\nTASK:", task["task"])
-        print("STEPS:")
+    if "no information found" in actual:
+        return False
 
-        for i, step in enumerate(result["steps"], 1):
-            print(
-                i,
-                step["action"],
-                "→",
-                step["observation"],
-            )
+    if "i'm sorry" in actual:
+        return False
 
-        print("ANSWER:", result["answer"])
-        print("EXPECTED:", task["expected_answer"])
-        print("ANSWER CORRECT:", answer_correct)
-        print("REWARD:", reward)
+    if "i cannot" in actual or "i can't" in actual:
+        return False
 
-    return results
+    if "please provide more" in actual:
+        return False
+
+    judge_prompt = f"""
+You are a strict binary answer verifier.
+
+TASK:
+{task}
+
+REQUIRED ANSWER:
+{expected_answer}
+
+AGENT ANSWER:
+{actual_answer}
+
+Your job is to determine whether the AGENT ANSWER correctly answers the
+TASK.
+
+The REQUIRED ANSWER is a checklist of facts that must all be present.
+
+Rules:
+
+1. Identify every distinct required fact in the REQUIRED ANSWER.
+
+2. Every required fact must be explicitly stated in the AGENT ANSWER,
+   or expressed using an unambiguous equivalent.
+
+3. If even ONE required fact is missing, return FALSE.
+
+4. If even ONE required fact is incorrect, return FALSE.
+
+5. Do not infer a missing fact from the TASK.
+
+6. Do not infer a missing fact from something the agent says it looked up.
+
+7. A tool call is NOT an answer. The actual tool result must be reflected
+   in the AGENT ANSWER.
+
+8. An error message or "no information found" response cannot satisfy a
+   required fact.
+
+9. Full sentences are acceptable.
+
+10. Different ordering or formatting is acceptable.
+
+11. Extra correct information is acceptable.
+
+12. Extra incorrect information makes the answer FALSE.
+
+Examples:
+
+REQUIRED ANSWER:
+Portland, Oregon; The Glass Harbor
+
+AGENT ANSWER:
+The Glass Harbor
+
+RESULT:
+FALSE
+
+REQUIRED ANSWER:
+Portland, Oregon; The Glass Harbor
+
+AGENT ANSWER:
+The profile subject was born in Portland, Oregon and wrote
+The Glass Harbor.
+
+RESULT:
+TRUE
+
+REQUIRED ANSWER:
+1987; 2021
+
+AGENT ANSWER:
+The profile subject was born in 1987 and died in 2021.
+
+RESULT:
+TRUE
+
+REQUIRED ANSWER:
+1987; 2021; 34
+
+AGENT ANSWER:
+The profile subject was born in 1987 and died in 2021.
+
+RESULT:
+FALSE
+
+REQUIRED ANSWER:
+The Glass Harbor; 2015
+
+AGENT ANSWER:
+The book "The Glass Harbor" was published in 2015.
+
+RESULT:
+TRUE
+
+REQUIRED ANSWER:
+1987; 2021; 34
+
+AGENT ANSWER:
+CALL_LOOKUP(profile subject death age)
+
+RESULT:
+FALSE
+
+Now evaluate the AGENT ANSWER.
+
+Return exactly one word:
+
+TRUE
+
+or
+
+FALSE
+
+Do not provide an explanation.
+""".strip()
+
+    prompt = tokenizer.apply_chat_template(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict binary verifier. "
+                    "Never infer missing facts. "
+                    "Return only TRUE or FALSE."
+                ),
+            },
+            {
+                "role": "user",
+                "content": judge_prompt,
+            },
+        ],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+    ).to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=3,
+        do_sample=False,
+    )
+
+    judgment = tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[-1]:],
+        skip_special_tokens=True,
+    ).strip().upper()
+
+    if judgment.startswith("TRUE"):
+        return True
+
+    return False
 
 def normalize_action(action):
     return "".join(action.split())
