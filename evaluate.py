@@ -184,12 +184,53 @@ MULTISTEP_TASKS = [
 
 def judge_answer(task, expected_answer, actual_answer):
     """
-    Use Qwen to determine whether the agent's final answer
-    correctly answers the task.
+    Judge whether the agent's final answer correctly answers the task.
+
+    Performs basic normalization/rejection of obvious tool-call outputs,
+    then uses Qwen for semantic evaluation.
     """
 
+    actual = actual_answer.strip().lower()
+
+    # Normalize common variations of tool-call names so that:
+    # CALL_LOOKUP
+    # Call Lookup
+    # call_lookup
+    # CALL-LOOKUP
+    # are all detected as tool calls.
+    normalized = (
+        actual
+        .replace("_", " ")
+        .replace("-", " ")
+    )
+
+    # Reject empty answers.
+    if not actual:
+        return False
+
+    # Reject answers that are actually tool calls rather than answers.
+    if "call lookup" in normalized:
+        return False
+
+    if "call calculator" in normalized:
+        return False
+
+    # Reject obvious tool/environment failures.
+    if "no information found" in actual:
+        return False
+
+    # Reject obvious refusal/non-answer responses.
+    if "i'm sorry" in actual:
+        return False
+
+    if "i cannot" in actual or "i can't" in actual:
+        return False
+
+    if "please provide more" in actual:
+        return False
+
     judge_prompt = f"""
-You are evaluating the final answer produced by an AI agent.
+You are a strict binary evaluator of an AI agent's FINAL ANSWER.
 
 TASK:
 {task}
@@ -197,28 +238,123 @@ TASK:
 EXPECTED ANSWER:
 {expected_answer}
 
-AGENT ANSWER:
+AGENT FINAL ANSWER:
 {actual_answer}
 
-Determine whether the AGENT ANSWER correctly answers the TASK.
+Determine whether the AGENT FINAL ANSWER correctly answers the TASK.
 
 Rules:
-- Judge factual correctness, not exact wording.
-- Full sentences are acceptable.
-- Different formatting is acceptable.
-- The agent does not need to use the same wording as the expected answer.
-- All required facts must be present.
-- Missing a required fact means FALSE.
-- An incorrect fact means FALSE.
-- A contradictory fact means FALSE.
-- Extra explanation is acceptable if it does not introduce incorrect information.
-- Do not judge whether the agent used the correct tools.
-- Do not judge the efficiency of the tool calls.
+
+1. Identify every distinct fact required by the TASK.
+
+2. Every required fact must be present in the AGENT FINAL ANSWER.
+
+3. If even ONE required fact is missing, return FALSE.
+
+4. If even ONE required fact is incorrect, return FALSE.
+
+5. Do not infer missing facts from the TASK.
+
+6. Do not infer missing facts from tool calls or tool results.
+
+7. A tool call is NOT an answer.
+
+8. The agent must actually state the requested information.
+
+9. Full sentences are acceptable.
+
+10. Different formatting is acceptable.
+
+11. Different ordering is acceptable.
+
+12. Semantically equivalent wording is acceptable.
+
+13. Extra correct explanation is acceptable.
+
+14. Extra incorrect or contradictory information makes the answer FALSE.
+
+15. If the answer contains only some of the required facts, return FALSE.
+
+Examples:
+
+EXPECTED:
+Portland, Oregon; The Glass Harbor
+
+AGENT:
+The Glass Harbor
+
+FALSE
+
+EXPECTED:
+Portland, Oregon; The Glass Harbor
+
+AGENT:
+The profile subject was born in Portland, Oregon and wrote
+The Glass Harbor.
+
+TRUE
+
+EXPECTED:
+The Glass Harbor; 2015
+
+AGENT:
+The book "The Glass Harbor" was published in 2015.
+
+TRUE
+
+EXPECTED:
+1987; 2021
+
+AGENT:
+The profile subject was born in 1987.
+
+FALSE
+
+EXPECTED:
+1987; 2021; 34
+
+AGENT:
+The profile subject was born in 1987 and died in 2021.
+
+FALSE
+
+EXPECTED:
+1987; 2021; 34
+
+AGENT:
+The profile subject was born in 1987, died in 2021, and was
+34 years old when they died.
+
+TRUE
+
+EXPECTED:
+The Glass Harbor; 2015; 2021; 6
+
+AGENT:
+The Glass Harbor was published in 2015. The profile subject died
+in 2021, six years after the book was published.
+
+TRUE
+
+EXPECTED:
+The Glass Harbor; 2015; 2021; 6
+
+AGENT:
+Call Lookup(profile subject book)_Call Lookup(profile subject death year)
+
+FALSE
+
+Now evaluate the AGENT FINAL ANSWER.
 
 Return exactly one word:
+
 TRUE
+
 or
+
 FALSE
+
+Do not provide an explanation.
 """.strip()
 
     prompt = tokenizer.apply_chat_template(
@@ -226,7 +362,8 @@ FALSE
             {
                 "role": "system",
                 "content": (
-                    "You are a strict answer evaluator. "
+                    "You are a strict binary answer evaluator. "
+                    "Never infer missing facts. "
                     "Return only TRUE or FALSE."
                 ),
             },
@@ -246,7 +383,7 @@ FALSE
 
     outputs = model.generate(
         **inputs,
-        max_new_tokens=5,
+        max_new_tokens=3,
         do_sample=False,
     )
 
@@ -261,8 +398,7 @@ FALSE
     if judgment.startswith("FALSE"):
         return False
 
-    # If the judge fails to follow the format,
-    # treat the answer as incorrect.
+    # Fail closed if the judge does not return TRUE/FALSE.
     return False
 
 def evaluate_single_step():
@@ -305,193 +441,47 @@ def evaluate_single_step():
     return results
 
 
-def judge_answer(task, expected_answer, actual_answer):
-    """
-    Judge whether the agent's final answer contains every required fact.
+def evaluate_multistep_correctness():
+    results = []
 
-    Uses simple deterministic rejection for obvious failures, then uses
-    the loaded Qwen model for semantic evaluation.
-    """
+    for task in MULTISTEP_TASKS:
+        result = agent(task["task"])
 
-    actual = actual_answer.strip().lower()
+        answer_correct = judge_answer(
+            task["task"],
+            task["expected_answer"],
+            result["answer"],
+        )
 
-    # Obvious failures should not be passed to the LLM judge.
-    if not actual:
-        return False
+        evaluation = {
+            "task": task["task"],
+            "answer": result["answer"],
+            "expected_answer": task["expected_answer"],
+            "steps": result["steps"],
+            "expected_tools": task["expected_tools"],
+            "answer_correct": answer_correct,
+            "reward": 1 if answer_correct else 0,
+        }
 
-    if actual.startswith("call_lookup"):
-        return False
+        results.append(evaluation)
 
-    if actual.startswith("call_calculator"):
-        return False
+        print("\nTASK:", task["task"])
+        print("STEPS:")
 
-    if "no information found" in actual:
-        return False
+        for i, step in enumerate(result["steps"], 1):
+            print(
+                i,
+                step["action"],
+                "→",
+                step["observation"],
+            )
 
-    if "i'm sorry" in actual:
-        return False
+        print("ANSWER:", result["answer"])
+        print("EXPECTED:", task["expected_answer"])
+        print("ANSWER CORRECT:", answer_correct)
+        print("REWARD:", 1 if answer_correct else 0)
 
-    if "i cannot" in actual or "i can't" in actual:
-        return False
-
-    if "please provide more" in actual:
-        return False
-
-    judge_prompt = f"""
-You are a strict binary answer verifier.
-
-TASK:
-{task}
-
-REQUIRED ANSWER:
-{expected_answer}
-
-AGENT ANSWER:
-{actual_answer}
-
-Your job is to determine whether the AGENT ANSWER correctly answers the
-TASK.
-
-The REQUIRED ANSWER is a checklist of facts that must all be present.
-
-Rules:
-
-1. Identify every distinct required fact in the REQUIRED ANSWER.
-
-2. Every required fact must be explicitly stated in the AGENT ANSWER,
-   or expressed using an unambiguous equivalent.
-
-3. If even ONE required fact is missing, return FALSE.
-
-4. If even ONE required fact is incorrect, return FALSE.
-
-5. Do not infer a missing fact from the TASK.
-
-6. Do not infer a missing fact from something the agent says it looked up.
-
-7. A tool call is NOT an answer. The actual tool result must be reflected
-   in the AGENT ANSWER.
-
-8. An error message or "no information found" response cannot satisfy a
-   required fact.
-
-9. Full sentences are acceptable.
-
-10. Different ordering or formatting is acceptable.
-
-11. Extra correct information is acceptable.
-
-12. Extra incorrect information makes the answer FALSE.
-
-Examples:
-
-REQUIRED ANSWER:
-Portland, Oregon; The Glass Harbor
-
-AGENT ANSWER:
-The Glass Harbor
-
-RESULT:
-FALSE
-
-REQUIRED ANSWER:
-Portland, Oregon; The Glass Harbor
-
-AGENT ANSWER:
-The profile subject was born in Portland, Oregon and wrote
-The Glass Harbor.
-
-RESULT:
-TRUE
-
-REQUIRED ANSWER:
-1987; 2021
-
-AGENT ANSWER:
-The profile subject was born in 1987 and died in 2021.
-
-RESULT:
-TRUE
-
-REQUIRED ANSWER:
-1987; 2021; 34
-
-AGENT ANSWER:
-The profile subject was born in 1987 and died in 2021.
-
-RESULT:
-FALSE
-
-REQUIRED ANSWER:
-The Glass Harbor; 2015
-
-AGENT ANSWER:
-The book "The Glass Harbor" was published in 2015.
-
-RESULT:
-TRUE
-
-REQUIRED ANSWER:
-1987; 2021; 34
-
-AGENT ANSWER:
-CALL_LOOKUP(profile subject death age)
-
-RESULT:
-FALSE
-
-Now evaluate the AGENT ANSWER.
-
-Return exactly one word:
-
-TRUE
-
-or
-
-FALSE
-
-Do not provide an explanation.
-""".strip()
-
-    prompt = tokenizer.apply_chat_template(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "You are a strict binary verifier. "
-                    "Never infer missing facts. "
-                    "Return only TRUE or FALSE."
-                ),
-            },
-            {
-                "role": "user",
-                "content": judge_prompt,
-            },
-        ],
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-    ).to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=3,
-        do_sample=False,
-    )
-
-    judgment = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[-1]:],
-        skip_special_tokens=True,
-    ).strip().upper()
-
-    if judgment.startswith("TRUE"):
-        return True
-
-    return False
+    return results
 
 def normalize_action(action):
     return "".join(action.split())
@@ -620,17 +610,25 @@ def evaluate_multistep_efficiency():
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
+        # Use the LLM judge for final-answer correctness.
+        answer_correct = judge_answer(
+            task["task"],
+            task["expected_answer"],
+            result["answer"],
+        )
+
+        # Evaluate tool-use efficiency separately.
         tool_eval = evaluate_tool_trajectory(
             result["steps"],
             task["expected_tools"],
         )
 
-        reward = calculate_multistep_efficiency_reward(
-            result["answer"],
-            task["expected_answer"],
-            unnecessary_calls=tool_eval["unnecessary_calls"],
-            invalid_calls=tool_eval["invalid_calls"],
-        )
+        # Base reward comes from the LLM's final-answer judgment.
+        reward = 1 if answer_correct else 0
+
+        # Penalize inefficient/invalid tool use.
+        reward -= 0.01 * tool_eval["unnecessary_calls"]
+        reward -= 0.05 * tool_eval["invalid_calls"]
 
         evaluation = {
             "task": task["task"],
@@ -638,6 +636,7 @@ def evaluate_multistep_efficiency():
             "expected_answer": task["expected_answer"],
             "steps": result["steps"],
             "expected_tools": task["expected_tools"],
+            "answer_correct": answer_correct,
             "tool_selection_correct": tool_eval["tool_selection_correct"],
             "argument_correct": tool_eval["argument_correct"],
             "order_correct": tool_eval["order_correct"],
@@ -662,6 +661,7 @@ def evaluate_multistep_efficiency():
 
         print("ANSWER:", result["answer"])
         print("EXPECTED:", task["expected_answer"])
+        print("ANSWER CORRECT:", answer_correct)
         print("TOOL SELECTION:", tool_eval["tool_selection_correct"])
         print("ARGUMENT CORRECT:", tool_eval["argument_correct"])
         print("ORDER CORRECT:", tool_eval["order_correct"])
