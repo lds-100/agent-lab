@@ -20,7 +20,7 @@ EVAL_TASKS = [
     ("Who wrote Romeo and Juliet?", "lookup"),
 ]
 
-MULTISTEP_TASKS_ORIGINAL = [
+MULTISTEP_TASKS_CALCULATOR = [
     {
         "task": "What is 23 * 17, and is the result greater than 400?",
         "expected_answer": "False",
@@ -66,77 +66,6 @@ MULTISTEP_TASKS_ORIGINAL = [
             "CALL_CALCULATOR(40 < 50)",
         ],
     },
-    {
-        "task": "Who wrote Romeo and Juliet, and when were they born?",
-        "expected_answer": "1564",
-        "expected_tools": ["lookup", "lookup"],
-        "reference_actions": [
-            "CALL_LOOKUP(Romeo_and_Juliet_author)",
-            "CALL_LOOKUP(William_Shakespeare_birth_year)",
-        ],
-    },
-    {
-        "task": "Who was Albert Einstein, and where were they born?",
-        "expected_answer": "Ulm",
-        "expected_tools": ["lookup", "lookup"],
-        "reference_actions": [
-            "CALL_LOOKUP(Albert_Einstein)",
-            "CALL_LOOKUP(Albert_Einstein_birthplace)",
-        ],
-    },
-    {
-        "task": "When was William Shakespeare born, when did he die, and how old was he when he died?",
-        "expected_answer": "52",
-        "expected_tools": ["lookup", "lookup", "calculator"],
-        "reference_actions": [
-            "CALL_LOOKUP(William_Shakespeare_birth_date)",
-            "CALL_LOOKUP(William_Shakespeare_death_date)",
-            "CALL_CALCULATOR(1616 - 1564)",
-        ],
-    },
-]
-
-MULTISTEP_TASKS_GENERAL = [
-    {
-        "task": "Who wrote Romeo and Juliet, and what year was William Shakespeare born?",
-        "expected_answer": "1564",
-        "expected_tools": ["lookup", "lookup"],
-    },
-    {
-        "task": "What year was William Shakespeare born, and what year did he die?",
-        "expected_answer": "1616",
-        "expected_tools": ["lookup", "lookup"],
-    },
-    {
-        "task": "What year was William Shakespeare born, what year did he die, and how old was he when he died?",
-        "expected_answer": "52",
-        "expected_tools": ["lookup", "lookup", "calculator"],
-    },
-    {
-        "task": "Who wrote Romeo and Juliet, and where was Albert Einstein born?",
-        "expected_answer": "Ulm, Germany",
-        "expected_tools": ["lookup", "lookup"],
-    },
-    {
-        "task": "Where was Albert Einstein born, and how many years before William Shakespeare died was Einstein born?",
-        "expected_answer": "52",
-        "expected_tools": ["lookup", "lookup", "calculator"],
-    },
-    {
-        "task": "Who wrote Romeo and Juliet, and how many years after Shakespeare was born did he die?",
-        "expected_answer": "52",
-        "expected_tools": ["lookup", "lookup", "calculator"],
-    },
-    {
-        "task": "Where was Albert Einstein born, and what year was William Shakespeare born?",
-        "expected_answer": "1564",
-        "expected_tools": ["lookup", "lookup"],
-    },
-    {
-        "task": "What year did William Shakespeare die, and how many years after his birth was that?",
-        "expected_answer": "52",
-        "expected_tools": ["lookup", "lookup", "calculator"],
-    },
 ]
 
 MULTISTEP_TASKS = [
@@ -144,41 +73,90 @@ MULTISTEP_TASKS = [
         "task": "Where was the profile subject born, and what book did they write?",
         "expected_answer": "Portland, Oregon; The Glass Harbor",
         "expected_tools": ["lookup", "lookup"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birthplace)",
+            "CALL_LOOKUP(profile subject book)",
+        ],
     },
     {
         "task": "What book did the profile subject write, and when was it published?",
         "expected_answer": "The Glass Harbor; 2015",
         "expected_tools": ["lookup", "lookup"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject book)",
+            "CALL_LOOKUP(profile subject book publication year)",
+        ],
     },
     {
         "task": "When was the profile subject born, and when did they die?",
         "expected_answer": "1987; 2021",
         "expected_tools": ["lookup", "lookup"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birth year)",
+            "CALL_LOOKUP(profile subject death year)",
+        ],
     },
     {
         "task": "When was the profile subject born, when did they die, and how old were they when they died?",
         "expected_answer": "1987; 2021; 34",
         "expected_tools": ["lookup", "lookup", "calculator"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birth year)",
+            "CALL_LOOKUP(profile subject death year)",
+            "CALL_CALCULATOR(2021-1987)",
+        ],
     },
     {
         "task": "Where was the profile subject born, what book did they write, and when was it published?",
         "expected_answer": "Portland, Oregon; The Glass Harbor; 2015",
         "expected_tools": ["lookup", "lookup", "lookup"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birthplace)",
+            "CALL_LOOKUP(profile subject book)",
+            "CALL_LOOKUP(profile subject book publication year)",
+        ],
     },
     {
         "task": "What book did the profile subject write, when was it published, when did they die, and how many years before their death was the book published?",
         "expected_answer": "The Glass Harbor; 2015; 2021; 6",
         "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject book)",
+            "CALL_LOOKUP(profile subject book publication year)",
+            "CALL_LOOKUP(profile subject death year)",
+            "CALL_CALCULATOR(2021-2015)",
+        ],
     },
     {
         "task": "When was the profile subject born, where were they born, when did they die, and how old were they when they died?",
         "expected_answer": "1987; Portland, Oregon; 2021; 34",
         "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birth year)",
+            "CALL_LOOKUP(profile subject birthplace)",
+            "CALL_LOOKUP(profile subject death year)",
+            "CALL_CALCULATOR(2021-1987)",
+        ],
     },
     {
         "task": "What book did the profile subject write, when was it published, when did they die, and how many years after publication did they die?",
         "expected_answer": "The Glass Harbor; 2015; 2021; 6",
         "expected_tools": ["lookup", "lookup", "lookup", "calculator"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject book)",
+            "CALL_LOOKUP(profile subject book publication year)",
+            "CALL_LOOKUP(profile subject death year)",
+            "CALL_CALCULATOR(2021-2015)",
+        ],
+    },
+    {
+        "task": "What is 500 / 10, and is the result greater than 40?",
+        "expected_answer": "True",
+        "expected_tools": ["calculator", "calculator"],
+        "reference_actions": [
+            "CALL_CALCULATOR(500 / 10)",
+            "CALL_CALCULATOR(50.0 > 40)",
+        ],
     },
 ]
 
@@ -230,132 +208,35 @@ def judge_answer(task, expected_answer, actual_answer):
         return False
 
     judge_prompt = f"""
-You are a strict binary evaluator of an AI agent's FINAL ANSWER.
+    TASK:
+    {task}
 
-TASK:
-{task}
+    EXPECTED ANSWER:
+    {expected_answer}
 
-EXPECTED ANSWER:
-{expected_answer}
+    AGENT FINAL ANSWER:
+    {actual_answer}
 
-AGENT FINAL ANSWER:
-{actual_answer}
+    Does the AGENT FINAL ANSWER correctly answer the TASK?
 
-Determine whether the AGENT FINAL ANSWER correctly answers the TASK.
+    Return TRUE only if:
+    - Every required fact is present.
+    - No required fact is missing.
+    - No fact is incorrect or contradictory.
+    - The answer is semantically equivalent to the expected answer.
 
-Rules:
+    Never infer missing facts.
 
-1. Identify every distinct fact required by the TASK.
+    Return exactly one word:
 
-2. Every required fact must be present in the AGENT FINAL ANSWER.
+    TRUE
 
-3. If even ONE required fact is missing, return FALSE.
+    or
 
-4. If even ONE required fact is incorrect, return FALSE.
+    FALSE
 
-5. Do not infer missing facts from the TASK.
-
-6. Do not infer missing facts from tool calls or tool results.
-
-7. A tool call is NOT an answer.
-
-8. The agent must actually state the requested information.
-
-9. Full sentences are acceptable.
-
-10. Different formatting is acceptable.
-
-11. Different ordering is acceptable.
-
-12. Semantically equivalent wording is acceptable.
-
-13. Extra correct explanation is acceptable.
-
-14. Extra incorrect or contradictory information makes the answer FALSE.
-
-15. If the answer contains only some of the required facts, return FALSE.
-
-Examples:
-
-EXPECTED:
-Portland, Oregon; The Glass Harbor
-
-AGENT:
-The Glass Harbor
-
-FALSE
-
-EXPECTED:
-Portland, Oregon; The Glass Harbor
-
-AGENT:
-The profile subject was born in Portland, Oregon and wrote
-The Glass Harbor.
-
-TRUE
-
-EXPECTED:
-The Glass Harbor; 2015
-
-AGENT:
-The book "The Glass Harbor" was published in 2015.
-
-TRUE
-
-EXPECTED:
-1987; 2021
-
-AGENT:
-The profile subject was born in 1987.
-
-FALSE
-
-EXPECTED:
-1987; 2021; 34
-
-AGENT:
-The profile subject was born in 1987 and died in 2021.
-
-FALSE
-
-EXPECTED:
-1987; 2021; 34
-
-AGENT:
-The profile subject was born in 1987, died in 2021, and was
-34 years old when they died.
-
-TRUE
-
-EXPECTED:
-The Glass Harbor; 2015; 2021; 6
-
-AGENT:
-The Glass Harbor was published in 2015. The profile subject died
-in 2021, six years after the book was published.
-
-TRUE
-
-EXPECTED:
-The Glass Harbor; 2015; 2021; 6
-
-AGENT:
-Call Lookup(profile subject book)_Call Lookup(profile subject death year)
-
-FALSE
-
-Now evaluate the AGENT FINAL ANSWER.
-
-Return exactly one word:
-
-TRUE
-
-or
-
-FALSE
-
-Do not provide an explanation.
-""".strip()
+    Do not provide an explanation.
+    """.strip()
 
     prompt = tokenizer.apply_chat_template(
         [
@@ -363,8 +244,9 @@ Do not provide an explanation.
                 "role": "system",
                 "content": (
                     "You are a strict binary answer evaluator. "
+                    "Compare the expected answer and the agent's final answer. "
                     "Never infer missing facts. "
-                    "Return only TRUE or FALSE."
+                    "Return exactly one word: TRUE or FALSE."
                 ),
             },
             {
@@ -441,60 +323,31 @@ def evaluate_single_step():
     return results
 
 
-def evaluate_multistep_correctness():
-    results = []
+def lookup_intent(action):
+    action = action.lower()
 
-    for task in MULTISTEP_TASKS:
-        result = agent(task["task"])
+    if "publication" in action:
+        return "profile subject book publication year"
+    if "birthplace" in action or "place of birth" in action:
+        return "profile subject birthplace"
+    if "birth" in action or "born" in action:
+        return "profile subject birth year"
+    if "death" in action or "died" in action:
+        return "profile subject death year"
+    if "book" in action or "wrote" in action:
+        return "profile subject book"
 
-        answer_correct = judge_answer(
-            task["task"],
-            task["expected_answer"],
-            result["answer"],
-        )
-
-        evaluation = {
-            "task": task["task"],
-            "answer": result["answer"],
-            "expected_answer": task["expected_answer"],
-            "steps": result["steps"],
-            "expected_tools": task["expected_tools"],
-            "answer_correct": answer_correct,
-            "reward": 1 if answer_correct else 0,
-        }
-
-        results.append(evaluation)
-
-        print("\nTASK:", task["task"])
-        print("STEPS:")
-
-        for i, step in enumerate(result["steps"], 1):
-            print(
-                i,
-                step["action"],
-                "→",
-                step["observation"],
-            )
-
-        print("ANSWER:", result["answer"])
-        print("EXPECTED:", task["expected_answer"])
-        print("ANSWER CORRECT:", answer_correct)
-        print("REWARD:", 1 if answer_correct else 0)
-
-    return results
-
-def normalize_action(action):
-    return "".join(action.split())
+    return None
 
 def check_argument_correct(actual, expected):
-    actual = normalize_action(actual)
-    expected = normalize_action(expected)
+    actual = "".join(actual.split())
+    expected = "".join(expected.split())
 
     if actual.startswith("CALL_CALCULATOR("):
         return actual == expected
 
     if actual.startswith("CALL_LOOKUP("):
-        return None
+        return lookup_intent(actual) == lookup_intent(expected)
 
     return False
 
@@ -574,36 +427,6 @@ def evaluate_tool_trajectory(
         "unnecessary_calls": unnecessary_calls,
     }
 
-def evaluate_tool_efficiency(actual_steps, reference_actions):
-    actual_actions = [step["action"].strip() for step in actual_steps]
-
-    unnecessary_calls = 0
-    invalid_calls = 0
-    reference_index = 0
-
-    for action in actual_actions:
-        if not (
-            action.startswith("CALL_CALCULATOR(") or action.startswith("CALL_LOOKUP(")
-        ):
-            invalid_calls += 1
-            continue
-
-        if reference_index < len(reference_actions):
-            expected_action = reference_actions[reference_index]
-
-            if action == expected_action:
-                reference_index += 1
-            else:
-                unnecessary_calls += 1
-        else:
-            unnecessary_calls += 1
-
-    return {
-        "unnecessary_calls": unnecessary_calls,
-        "invalid_calls": invalid_calls,
-    }
-
-
 def evaluate_multistep_efficiency():
     results = []
 
@@ -621,14 +444,13 @@ def evaluate_multistep_efficiency():
         tool_eval = evaluate_tool_trajectory(
             result["steps"],
             task["expected_tools"],
+            task["reference_actions"],
         )
-
-        # Base reward comes from the LLM's final-answer judgment.
-        reward = 1 if answer_correct else 0
-
-        # Penalize inefficient/invalid tool use.
-        reward -= 0.01 * tool_eval["unnecessary_calls"]
-        reward -= 0.05 * tool_eval["invalid_calls"]
+        
+        reward = calculate_multistep_efficiency_reward(
+            answer_correct,
+            tool_eval,
+        )
 
         evaluation = {
             "task": task["task"],

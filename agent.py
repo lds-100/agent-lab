@@ -25,6 +25,7 @@ SYSTEM_PROMPT_TOOLS = (
     "CALL_LOOKUP(profile subject book), "
     "CALL_LOOKUP(profile subject book publication year). "
     "For multi-step questions, retrieve each required fact separately. "
+    "Be sure to return answers to all parts of the question."
     "Do not guess profile subject facts. "
     "Output nothing else."
 )
@@ -32,62 +33,54 @@ SYSTEM_PROMPT_TOOLS = (
 SYSTEM_PROMPT_FINAL = (
     "Use the tool result to answer the user's original question. "
     "Give only the final answer."
+    "Be sure to return answers to all parts of the question."
 )
 
 
 def agent(task, max_steps=4):
     messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT_TOOLS,
-        },
-        {
-            "role": "user",
-            "content": task,
-        },
+        {"role": "system", "content": SYSTEM_PROMPT_TOOLS},
+        {"role": "user", "content": task},
     ]
 
     steps = []
 
-    for _ in range(max_steps):
-        # Ask Qwen for the next action
+    # Send the current conversation to the model and return its response.
+    def generate_response():
         prompt = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True,
         )
-
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=50,
-        )
-
-        action = tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[-1] :],
+        outputs = model.generate(**inputs, max_new_tokens=50)
+        return tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1]:],
             skip_special_tokens=True,
         ).strip()
 
-        # Execute the selected tool
+    # Let the model take up to `max_steps` tool actions.
+    for _ in range(max_steps):
+        action = generate_response()
+
+        # Execute the requested tool.
         if action.startswith("CALL_CALCULATOR"):
-            expression = action[len("CALL_CALCULATOR(") : -1]
+            expression = action[len("CALL_CALCULATOR("):-1]
             result = calculator(expression)
             tool = "calculator"
-
         elif action.startswith("CALL_LOOKUP"):
-            topic = action[len("CALL_LOOKUP(") : -1]
+            topic = action[len("CALL_LOOKUP("):-1]
             result = lookup(topic)
             tool = "lookup"
-
         else:
+            # The model returned a final answer instead of a tool call.
             return {
                 "task": task,
                 "steps": steps,
                 "answer": action,
             }
 
-        # Record this step
+        # Record the tool call and feed the result back to the model.
         steps.append(
             {
                 "action": action,
@@ -96,49 +89,16 @@ def agent(task, max_steps=4):
             }
         )
 
-        # Give the observation back to Qwen
-        messages.append(
-            {
-                "role": "assistant",
-                "content": action,
-            }
-        )
+        messages.extend([
+            {"role": "assistant", "content": action},
+            {"role": "user", "content": f"Tool result: {result}"},
+        ])
 
-        messages.append(
-            {
-                "role": "user",
-                "content": f"Tool result: {result}",
-            }
-        )
-
-    # Ask Qwen for final answer
-    messages.append(
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT_FINAL,
-        }
-    )
-
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=50,
-    )
-
-    final_answer = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[-1] :],
-        skip_special_tokens=True,
-    ).strip()
+    # If we hit the step limit, ask the model for a final answer.
+    messages.append({"role": "system", "content": SYSTEM_PROMPT_FINAL})
 
     return {
         "task": task,
         "steps": steps,
-        "answer": final_answer,
+        "answer": generate_response(),
     }
