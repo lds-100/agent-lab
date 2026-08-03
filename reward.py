@@ -3,6 +3,7 @@ def calculate_reward(chosen_tool, expected_tool):
         return 1
     return 0
 
+
 def calculate_multistep_reward(answer, expected_answer):
     answer = answer.strip().lower()
     expected_answer = expected_answer.strip().lower()
@@ -14,6 +15,7 @@ def calculate_multistep_reward(answer, expected_answer):
         return 1 if ("no" in answer or "false" in answer) else 0
 
     return 1 if expected_answer in answer else 0
+
 
 def calculate_multistep_efficiency_reward(
     answer,

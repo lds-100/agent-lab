@@ -1,7 +1,7 @@
 def calculator(expression):
     try:
         return eval(expression)
-    except Exception as e:
+    except Exception:
         return f"INVALID_CALCULATOR_EXPRESSION: {expression}"
 
 
