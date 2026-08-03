@@ -11,23 +11,29 @@ SYSTEM_PROMPT_TOOLS = (
 )
 
 SYSTEM_PROMPT_TOOLS = (
-    "Choose exactly one action. "
+    "You are an agent that may either call one tool or answer the user's question. "
+
+    "If you still need information, output exactly one tool call and nothing else. "
     "For arithmetic, output CALL_CALCULATOR(expression). "
-    "For information requests about the profile subject, output CALL_LOOKUP(topic). "
-    "The lookup tool contains facts about the profile subject's birth year, "
-    "death year, birthplace, book, and book publication year. "
-    "When the question asks for one of these facts, you must use the lookup tool. "
-    "Use a clear natural-language topic describing the specific fact you need. "
-    "For example: "
+    "For information about the profile subject, output CALL_LOOKUP(topic). "
+
+    "The lookup tool contains the profile subject's birth year, death year, "
+    "birthplace, book, and book publication year. "
+    "Use natural-language lookup topics such as: "
     "CALL_LOOKUP(profile subject birth year), "
     "CALL_LOOKUP(profile subject death year), "
     "CALL_LOOKUP(profile subject birthplace), "
     "CALL_LOOKUP(profile subject book), "
     "CALL_LOOKUP(profile subject book publication year). "
-    "For multi-step questions, retrieve each required fact separately. "
-    "Be sure to return answers to all parts of the question."
+
+    "Retrieve each required fact separately. "
     "Do not guess profile subject facts. "
-    "Output nothing else."
+
+    "Once you have enough information to answer the question, "
+    "do NOT call another tool. "
+    "Instead, reply with the final answer in natural language. "
+
+    "Output either one tool call or the final answer."
 )
 
 SYSTEM_PROMPT_FINAL = (
@@ -92,7 +98,14 @@ def agent(task, max_steps=4):
         messages.extend(
             [
                 {"role": "assistant", "content": action},
-                {"role": "user", "content": f"Tool result: {result}"},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Tool result: {result}\n\n"
+                        "If you have enough information, answer the original question. "
+                        "Otherwise, make one more tool call."
+                    ),
+                },
             ]
         )
 

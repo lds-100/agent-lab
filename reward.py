@@ -23,8 +23,9 @@ def calculate_multistep_efficiency_reward(
     if tool_eval["argument_correct"]:
         reward += 0.1
 
-    # Penalize unnecessary and invalid tool calls.
+    # Penalize missing, unnecessary, and invalid tool calls.
+    reward -= 0.05 * tool_eval["missing_required_steps"]
     reward -= 0.05 * tool_eval["unnecessary_calls"]
-    reward -= 0.1 * tool_eval["invalid_calls"]
+    reward -= 0.10 * tool_eval["invalid_calls"]
 
     return reward

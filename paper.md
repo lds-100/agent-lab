@@ -432,3 +432,291 @@ Future experiments will investigate:
 A particularly important question is whether a richer reward can teach the model not only to produce correct answers, but also to make better sequential decisions about **which tool to use, when to use it, and when no further tool call is necessary**.
 
 The eventual comparison will be between the frozen untrained baseline and the trained policy.
+
+### 9.1 The REINFORCE Algorithm
+
+The reinforcement learning method used in this project is **REINFORCE**, one of the simplest policy-gradient algorithms. Rather than learning value functions or action-value estimates, REINFORCE directly updates the policy itself.
+
+In this project, the **Qwen model is the policy**. A policy is simply a mapping from the current state to a probability distribution over possible actions:
+
+$$
+\pi(a \mid s),
+$$
+
+where \(s\) is the current state (the conversation and any previous tool observations) and \(a\) is the next action.
+
+For example, suppose the current state is:
+
+> **Question:** Where was the profile subject born?
+
+The model might assign the following probabilities:
+
+| Action | Probability |
+|---------|------------:|
+| `CALL_LOOKUP(profile subject birthplace)` | 70% |
+| `CALL_LOOKUP(profile subject book)` | 20% |
+| `CALL_CALCULATOR(5+5)` | 5% |
+| Produce a final answer | 5% |
+
+The model samples one of these actions according to its probabilities. During a multi-step task, this process repeats after every tool observation.
+
+### The Reward
+
+After the model finishes a trajectory, it receives a single scalar reward from the reward function. The reward serves as the only training signal.
+
+For example, a successful trajectory might be:
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+CALL_LOOKUP(profile subject book)
+Final answer
+```
+
+which receives:
+
+```text
+reward = +1.3
+```
+
+A poor trajectory might be:
+
+```text
+CALL_LOOKUP(profile subject book)
+CALL_LOOKUP(profile subject book)
+CALL_LOOKUP(profile subject book)
+Incorrect final answer
+```
+
+which receives:
+
+```text
+reward = -0.4
+```
+
+Importantly, the model is **not told which individual decision was good or bad**. It only receives feedback on the trajectory as a whole:
+
+- This sequence of actions was good.
+- This sequence of actions was bad.
+
+This is known as the **credit assignment problem**, since the learning algorithm must determine which earlier decisions were responsible for the final reward.
+
+### The REINFORCE Update
+
+REINFORCE updates the policy according to
+
+$$
+\nabla J(\theta)
+=
+R(\tau)
+\sum_{t=0}^{T}
+\nabla_\theta
+\log
+\pi_\theta(a_t \mid s_t),
+$$
+
+where \(R(\tau)\) is the reward assigned to the complete trajectory.
+
+Although the equation appears complicated, the intuition is straightforward.
+
+When a trajectory receives a **high reward**, the algorithm increases the probability of the actions that produced it.
+
+For example, before training the model might assign
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+Probability: 0.20
+```
+
+After repeatedly observing successful trajectories, that probability may increase:
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+Probability: 0.25
+```
+
+Conversely, when a trajectory receives a **low reward**, the probability of the sampled actions is reduced.
+
+For example:
+
+Before training:
+
+```text
+CALL_LOOKUP(profile subject book)
+Probability: 0.30
+```
+
+After repeatedly receiving poor rewards:
+
+```text
+CALL_LOOKUP(profile subject book)
+Probability: 0.20
+```
+
+Over many training iterations, the policy gradually shifts toward sequences of actions that consistently achieve higher rewards. In the context of this project, the goal is for the model to learn not only **which tool to use**, but also **when to use it, when another tool call is necessary, and when it has gathered enough information to produce a final answer**.
+
+### 9.2 The REINFORCE Training Loop
+
+The REINFORCE algorithm trains the policy by repeatedly allowing it to interact with the environment, assigning a reward to the resulting trajectory, and updating the policy so that high-reward trajectories become more likely in the future.
+
+At a high level, the training loop is:
+
+```python
+for task in dataset:
+
+    # 1. Generate trajectory
+    trajectory = agent(task)
+
+    # 2. Calculate reward
+    reward = calculate_reward(trajectory)
+
+    # 3. Compute log probabilities
+    log_probs = model_probability_of_actions(trajectory)
+
+    # 4. REINFORCE loss
+    loss = -reward * sum(log_probs)
+
+    # 5. Backpropagation
+    loss.backward()
+
+    optimizer.step()
+```
+
+Each iteration consists of five conceptual stages.
+
+#### 1. Generate a trajectory
+
+The model first interacts with the environment by repeatedly selecting actions and receiving tool observations.
+
+For example, given the task:
+
+> Where was the profile subject born, and what book did they write?
+
+the model might produce the following trajectory:
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+→ Portland, Oregon
+
+CALL_LOOKUP(profile subject book)
+→ The Glass Harbor
+
+Final answer:
+"The profile subject was born in Portland, Oregon and wrote The Glass Harbor."
+```
+
+The trajectory therefore consists of the task, the sequence of tool calls, the resulting observations, and the final answer.
+
+At this stage, no learning has occurred. The model is simply collecting experience.
+
+#### 2. Calculate the reward
+
+Once the trajectory is complete, the reward function assigns a single scalar value that measures its overall quality.
+
+For example, a successful trajectory might receive
+
+```text
+reward = +1.2
+```
+
+while an inefficient trajectory containing unnecessary or invalid tool calls might receive
+
+```text
+reward = -0.4
+```
+
+Importantly, the reward is assigned **only after the entire trajectory has finished**. The model is not told which individual action was correct or incorrect.
+
+#### 3. Compute the log probabilities
+
+When the model generated each action, it internally assigned probabilities to all possible next actions.
+
+For example, before selecting its first action it might have predicted
+
+| Action | Probability |
+|---------|------------:|
+| `CALL_LOOKUP(profile subject birthplace)` | 0.70 |
+| `CALL_LOOKUP(profile subject book)` | 0.20 |
+| `CALL_CALCULATOR(...)` | 0.05 |
+| Produce a final answer | 0.05 |
+
+Suppose the model sampled
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+```
+
+REINFORCE records the probability of the sampled action. This process is repeated for every action in the trajectory, producing a list of log probabilities such as
+
+```python
+log_probs = [
+    log(0.70),
+    log(0.82),
+    log(0.65),
+]
+```
+
+These values quantify how confident the model was in each decision that it actually made.
+
+#### 4. Compute the REINFORCE loss
+
+The loss function is
+
+```python
+loss = -reward * sum(log_probs)
+```
+
+This single equation captures the central idea of REINFORCE.
+
+If the trajectory receives a **high reward**, gradient descent increases the probability of the sampled actions.
+
+For example, before training the model might assign
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+Probability: 0.20
+```
+
+After repeatedly observing successful trajectories, that probability may increase to
+
+```text
+CALL_LOOKUP(profile subject birthplace)
+Probability: 0.25
+```
+
+Conversely, if the trajectory receives a **low reward**, the probability of those sampled actions decreases.
+
+For example,
+
+Before training:
+
+```text
+CALL_LOOKUP(profile subject book)
+Probability: 0.30
+```
+
+After repeatedly receiving poor rewards:
+
+```text
+CALL_LOOKUP(profile subject book)
+Probability: 0.20
+```
+
+Thus, REINFORCE gradually shifts probability mass toward actions that tend to produce higher rewards.
+
+#### 5. Update the policy
+
+Finally, gradients are computed through the transformer using backpropagation,
+
+```python
+loss.backward()
+```
+
+and the optimizer updates the model parameters,
+
+```python
+optimizer.step()
+```
+
+After the update, the policy has changed slightly. The next trajectory is therefore generated using a marginally improved policy.
+
+Although each individual update is small, thousands of such updates gradually encourage the model to produce sequences of tool-use decisions that consistently receive higher rewards. In this project, the objective is to learn not only which tool to use, but also when to use it, when additional tool calls are necessary, and when sufficient information has been gathered to produce a final answer.
