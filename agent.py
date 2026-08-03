@@ -16,7 +16,7 @@ SYSTEM_PROMPT_FINAL = (
 )
 
 
-def agent(task, max_steps=2):
+def agent(task, max_steps=4):
     messages = [
         {
             "role": "system",

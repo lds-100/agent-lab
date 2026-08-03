@@ -23,7 +23,10 @@ def calculate_multistep_efficiency_reward(
     unnecessary_calls=0,
     invalid_calls=0,
 ):
-    reward = calculate_multistep_reward(answer, expected_answer)
+    reward = calculate_multistep_reward(
+        answer,
+        expected_answer,
+    )
 
     reward -= 0.01 * unnecessary_calls
     reward -= 0.05 * invalid_calls

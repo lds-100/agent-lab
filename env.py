@@ -6,10 +6,10 @@ def calculator(expression):
 
 
 LOOKUP_DATA = {
-    "romeo and juliet": "William Shakespeare",
-    "shakespeare birth": "William Shakespeare was born in 1564.",
-    "shakespeare death": "William Shakespeare died in 1616.",
-    "albert einstein": "Albert Einstein was born in Ulm, Germany.",
+    "romeo and juliet author": "William Shakespeare",
+    "shakespeare birth year": "1564",
+    "shakespeare death year": "1616",
+    "einstein birthplace": "Ulm, Germany",
 }
 
 
@@ -17,18 +17,17 @@ def lookup(topic):
     topic = topic.lower().strip()
 
     if "romeo" in topic and "juliet" in topic:
-        if "birth" in topic or "born" in topic:
-            return "William Shakespeare was born in 1564."
-        return "William Shakespeare wrote Romeo and Juliet."
+        return "William Shakespeare"
 
     if "shakespeare" in topic:
         if "birth" in topic or "born" in topic:
-            return "William Shakespeare was born in 1564."
+            return "1564"
         if "death" in topic or "died" in topic:
-            return "William Shakespeare died in 1616."
-        return "William Shakespeare."
+            return "1616"
 
-    if "einstein" in topic:
-        return "Albert Einstein was born in Ulm, Germany."
+    if "einstein" in topic and (
+        "birthplace" in topic or "born" in topic
+    ):
+        return "Ulm, Germany"
 
     return f"No information found for {topic}"

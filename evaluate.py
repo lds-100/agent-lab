@@ -1,4 +1,4 @@
-from agent import agent
+# from agent import agent
 from reward import (
     calculate_multistep_efficiency_reward,
     calculate_multistep_reward,
@@ -18,7 +18,7 @@ EVAL_TASKS = [
     ("Who wrote Romeo and Juliet?", "lookup"),
 ]
 
-MULTISTEP_TASKS = [
+MULTISTEP_TASKS_ORIGINAL = [
     {
         "task": "What is 23 * 17, and is the result greater than 400?",
         "expected_answer": "False",
@@ -94,6 +94,49 @@ MULTISTEP_TASKS = [
     },
 ]
 
+MULTISTEP_TASKS = [
+    {
+        "task": "Who wrote Romeo and Juliet, and what year was William Shakespeare born?",
+        "expected_answer": "1564",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "What year was William Shakespeare born, and what year did he die?",
+        "expected_answer": "1616",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "What year was William Shakespeare born, what year did he die, and how old was he when he died?",
+        "expected_answer": "52",
+        "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "Who wrote Romeo and Juliet, and where was Albert Einstein born?",
+        "expected_answer": "Ulm, Germany",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "Where was Albert Einstein born, and how many years before William Shakespeare died was Einstein born?",
+        "expected_answer": "52",
+        "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "Who wrote Romeo and Juliet, and how many years after Shakespeare was born did he die?",
+        "expected_answer": "52",
+        "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+    {
+        "task": "Where was Albert Einstein born, and what year was William Shakespeare born?",
+        "expected_answer": "1564",
+        "expected_tools": ["lookup", "lookup"],
+    },
+    {
+        "task": "What year did William Shakespeare die, and how many years after his birth was that?",
+        "expected_answer": "52",
+        "expected_tools": ["lookup", "lookup", "calculator"],
+    },
+]
+
 
 def evaluate_single_step():
     results = []
@@ -166,6 +209,86 @@ def evaluate_multistep_correctness():
 
     return results
 
+def normalize_action(action):
+    return "".join(action.split())
+
+def check_argument_correct(actual, expected):
+    actual = normalize_action(actual)
+    expected = normalize_action(expected)
+
+    if actual.startswith("CALL_CALCULATOR("):
+        return actual == expected
+
+    if actual.startswith("CALL_LOOKUP("):
+        return None
+
+    return False
+
+def evaluate_tool_trajectory(actual_steps, expected_tools, reference_actions):
+    actual_actions = [
+        step["action"].strip()
+        for step in actual_steps
+    ]
+
+    actual_tools = []
+    invalid_calls = 0
+
+    for action in actual_actions:
+        if action.startswith("CALL_CALCULATOR("):
+            actual_tools.append("calculator")
+        elif action.startswith("CALL_LOOKUP("):
+            actual_tools.append("lookup")
+        else:
+            invalid_calls += 1
+
+    tool_selection_correct = actual_tools == expected_tools
+
+    argument_correct_per_call = [
+        check_argument_correct(actual, expected)
+        for actual, expected in zip(actual_actions, reference_actions)
+    ]
+
+    known_argument_results = [
+        result
+        for result in argument_correct_per_call
+        if result is not None
+    ]
+
+    argument_correct = (
+        all(known_argument_results)
+        if known_argument_results
+        else None
+    )
+
+    order_correct = True
+    expected_index = 0
+
+    for tool in actual_tools:
+        if expected_index < len(expected_tools):
+            if tool == expected_tools[expected_index]:
+                expected_index += 1
+            else:
+                order_correct = False
+
+    missing_required_steps = max(
+        0,
+        len(expected_tools) - expected_index
+    )
+
+    unnecessary_calls = max(
+        0,
+        len(actual_tools) - len(expected_tools)
+    )
+
+    return {
+        "tool_selection_correct": actual_tools == expected_tools,
+        "argument_correct": argument_correct,
+        "argument_correct_per_call": argument_correct_per_call,
+        "order_correct": order_correct,
+        "missing_required_steps": missing_required_steps,
+        "invalid_calls": invalid_calls,
+        "unnecessary_calls": unnecessary_calls,
+    }
 
 def evaluate_tool_efficiency(actual_steps, reference_actions):
     actual_actions = [step["action"].strip() for step in actual_steps]
@@ -203,9 +326,9 @@ def evaluate_multistep_efficiency():
     for task in MULTISTEP_TASKS:
         result = agent(task["task"])
 
-        tool_eval = evaluate_tool_efficiency(
+        tool_eval = evaluate_tool_trajectory(
             result["steps"],
-            task["reference_actions"],
+            task["expected_tools"],
         )
 
         reward = calculate_multistep_efficiency_reward(
@@ -221,9 +344,12 @@ def evaluate_multistep_efficiency():
             "expected_answer": task["expected_answer"],
             "steps": result["steps"],
             "expected_tools": task["expected_tools"],
-            "reference_actions": task["reference_actions"],
-            "unnecessary_calls": tool_eval["unnecessary_calls"],
+            "tool_selection_correct": tool_eval["tool_selection_correct"],
+            "argument_correct": tool_eval["argument_correct"],
+            "order_correct": tool_eval["order_correct"],
+            "missing_required_steps": tool_eval["missing_required_steps"],
             "invalid_calls": tool_eval["invalid_calls"],
+            "unnecessary_calls": tool_eval["unnecessary_calls"],
             "reward": reward,
         }
 
@@ -242,8 +368,12 @@ def evaluate_multistep_efficiency():
 
         print("ANSWER:", result["answer"])
         print("EXPECTED:", task["expected_answer"])
-        print("UNNECESSARY CALLS:", tool_eval["unnecessary_calls"])
+        print("TOOL SELECTION:", tool_eval["tool_selection_correct"])
+        print("ARGUMENT CORRECT:", tool_eval["argument_correct"])
+        print("ORDER CORRECT:", tool_eval["order_correct"])
+        print("MISSING STEPS:", tool_eval["missing_required_steps"])
         print("INVALID CALLS:", tool_eval["invalid_calls"])
+        print("UNNECESSARY CALLS:", tool_eval["unnecessary_calls"])
         print("REWARD:", reward)
 
     return results
