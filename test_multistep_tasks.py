@@ -1,6 +1,19 @@
 from evaluate import MULTISTEP_TASKS
 from env import lookup
 
+
+def test_lookup_contract():
+    queries = {
+        "profile subject birth year": "1987",
+        "profile subject death year": "2021",
+        "profile subject birthplace": "Portland, Oregon",
+        "profile subject book": "The Glass Harbor",
+        "profile subject book publication year": "2015",
+    }
+
+    for query, expected in queries.items():
+        assert lookup(query) == expected
+
 def test_profile_subject_facts():
     assert lookup("profile subject birth year") == "1987"
     assert lookup("profile subject death year") == "2021"

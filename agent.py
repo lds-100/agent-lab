@@ -10,6 +10,25 @@ SYSTEM_PROMPT_TOOLS = (
     "Output nothing else."
 )
 
+SYSTEM_PROMPT_TOOLS = (
+    "Choose exactly one action. "
+    "For arithmetic, output CALL_CALCULATOR(expression). "
+    "For information requests about the profile subject, output CALL_LOOKUP(topic). "
+    "The lookup tool contains facts about the profile subject's birth year, "
+    "death year, birthplace, book, and book publication year. "
+    "When the question asks for one of these facts, you must use the lookup tool. "
+    "Use a clear natural-language topic describing the specific fact you need. "
+    "For example: "
+    "CALL_LOOKUP(profile subject birth year), "
+    "CALL_LOOKUP(profile subject death year), "
+    "CALL_LOOKUP(profile subject birthplace), "
+    "CALL_LOOKUP(profile subject book), "
+    "CALL_LOOKUP(profile subject book publication year). "
+    "For multi-step questions, retrieve each required fact separately. "
+    "Do not guess profile subject facts. "
+    "Output nothing else."
+)
+
 SYSTEM_PROMPT_FINAL = (
     "Use the tool result to answer the user's original question. "
     "Give only the final answer."
