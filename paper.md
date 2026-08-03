@@ -502,19 +502,22 @@ This is known as the **credit assignment problem**, since the learning algorithm
 
 ### The REINFORCE Update
 
-REINFORCE updates the policy according to
+REINFORCE maximizes the expected reward by estimating the policy gradient
 
 $$
-\nabla J(\theta)
+\nabla_\theta J(\theta)
 =
+\mathbb{E}_{\tau \sim \pi_\theta}
+\left[
 R(\tau)
 \sum_{t=0}^{T}
 \nabla_\theta
 \log
-\pi_\theta(a_t \mid s_t),
+\pi_\theta(a_t \mid s_t)
+\right],
 $$
 
-where \(R(\tau)\) is the reward assigned to the complete trajectory.
+where \(\tau\) denotes a sampled trajectory and \(R(\tau)\) is the reward assigned to that trajectory.
 
 Although the equation appears complicated, the intuition is straightforward.
 
