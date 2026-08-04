@@ -23,7 +23,7 @@ MAX_STEPS = 4
 
 LEARNING_RATE = 1e-6
 
-CHECKPOINT_PREFIX = "test_checkpoint"
+CHECKPOINT_PREFIX = "lora_test_checkpoint"
 
 RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 PATH = f"training_trajectories_{RUN_ID}.jsonl"
@@ -218,12 +218,10 @@ def train():
             if update % CHECKPOINT_EVERY == 0:
                 checkpoint = f"{CHECKPOINT_PREFIX}-{update}"
 
-                torch.save(
-                    model.state_dict(),
-                    f"{checkpoint}.pt",
-                )
+                model.save_pretrained(checkpoint)
 
                 print(f"\nSaved {checkpoint}\n")
+                
 
 
 if __name__ == "__main__":
