@@ -152,15 +152,15 @@ MULTISTEP_TASKS = [
             "CALL_CALCULATOR(2021-2015)",
         ],
     },
-    # {
-    #     "task": "What is 500 / 10, and is the result greater than 40?",
-    #     "expected_answer": "True",
-    #     "expected_tools": ["calculator", "calculator"],
-    #     "reference_actions": [
-    #         "CALL_CALCULATOR(500 / 10)",
-    #         "CALL_CALCULATOR(50.0 > 40)",
-    #     ],
-    # },
+    {
+        "task": "What is 500 / 10, and is the result greater than 40?",
+        "expected_answer": "True",
+        "expected_tools": ["calculator", "calculator"],
+        "reference_actions": [
+            "CALL_CALCULATOR(500 / 10)",
+            "CALL_CALCULATOR(50.0 > 40)",
+        ],
+    },
 ]
 
 
