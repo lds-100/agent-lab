@@ -12,6 +12,8 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto",
 )
 
+# REINFORCE = how we learn
+# LoRA = what part of the model we allow to learn
 lora_config = LoraConfig(
     r=8,
     lora_alpha=16,
@@ -30,5 +32,7 @@ model = get_peft_model(
     model,
     lora_config,
 )
+
+model.config.use_cache = False
 
 model.print_trainable_parameters()

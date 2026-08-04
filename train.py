@@ -29,8 +29,13 @@ RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 PATH = f"training_trajectories_{RUN_ID}.jsonl"
 
 
+trainable_parameters = [
+    p for p in model.parameters()
+    if p.requires_grad
+]
+
 optimizer = torch.optim.AdamW(
-    model.parameters(),
+    trainable_parameters,
     lr=LEARNING_RATE,
 )
 
@@ -162,7 +167,7 @@ def train_one_update(task_data, update):
     loss.backward()
 
     torch.nn.utils.clip_grad_norm_(
-        model.parameters(),
+        trainable_parameters,
         max_norm=1.0,
     )
 
