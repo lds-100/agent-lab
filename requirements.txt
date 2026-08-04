@@ -1,0 +1,4 @@
+torch
+transformers
+peft==0.19.1
+torchao==0.18.0
