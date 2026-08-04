@@ -563,7 +563,6 @@ At a high level, the training loop is:
 
 ```python
 for task in dataset:
-
     # 1. Generate trajectory
     trajectory = agent(task)
 

@@ -121,11 +121,84 @@ incorrect/no tool → 0
 
 This gives us a measurable **baseline**: the untrained model's performance that future versions can be compared against.
 
-The baseline is frozen as:
+The single-step baseline trajectories are frozen as:
 
 ```text
 baseline_trajectories.jsonl
 ```
+
+---
+
+## Baseline Snapshot
+
+Before beginning RL training, the current multi-step evaluation results are being preserved as a separate baseline artifact.
+
+The baseline metrics are stored in:
+
+```text
+baselines/multistep_baseline_v1.json
+```
+
+This file records the performance of the **untrained Qwen 2.5 1.5B Instruct model** before any RL updates.
+
+The baseline should not be overwritten during later experiments.
+
+The baseline is intended to provide a fixed point of comparison:
+
+```text
+Frozen baseline
+      ↓
+RL training
+      ↓
+Evaluate checkpoint
+      ↓
+Compare against baseline
+```
+
+The current baseline evaluation uses 9 trajectories.
+
+---
+
+## Reward Version
+
+The current efficiency reward used for the first RL experiment is designated:
+
+```text
+Reward version: v1
+```
+
+The reward implementation remains:
+
+```text
+calculate_multistep_efficiency_reward(...)
+```
+
+The function name describes its purpose; `v1` identifies the specific reward definition used for this experiment.
+
+Once RL training begins, the reward definition should remain fixed for the duration of the experiment so that changes between checkpoints can be interpreted meaningfully.
+
+Future changes to the reward should receive a new version, such as:
+
+```text
+Reward version: v2
+Reward version: v3
+```
+
+---
+
+## Frozen Evaluation Set
+
+The current `MULTISTEP_TASKS` set is the frozen evaluation set for the first RL experiment.
+
+It should remain unchanged during training.
+
+```python
+# Frozen evaluation set for RL experiment v1.
+# Do not modify during training.
+MULTISTEP_TASKS = [...]
+```
+
+Future unseen or generalization tasks should be placed in a separate evaluation set rather than modifying the frozen baseline tasks.
 
 ---
 
@@ -152,7 +225,7 @@ These records let us inspect what the agent did and will eventually provide the 
 
 # Multi-Step Evaluation
 
-The project now includes a separate **8-task multi-step evaluation set** using a synthetic profile subject.
+The project now includes a separate **9-task multi-step evaluation set** using a synthetic profile subject.
 
 The tasks require combinations of:
 
@@ -187,6 +260,8 @@ The Glass Harbor; 2015; 2021; 6
 1987; Portland, Oregon; 2021; 34
 The Glass Harbor; 2015; 2021; 6
 ```
+
+An additional calculator task is included in the current 9-trajectory evaluation run.
 
 These tasks are deliberately more difficult than the original two-step calculator tasks because the agent must maintain information across multiple tool calls and sometimes perform a final calculation.
 
@@ -238,14 +313,31 @@ The judge is currently an **evaluation aid**, not ground truth. Its decisions sh
 
 # Multi-Step Efficiency Reward
 
-The current efficiency reward combines final-answer correctness with penalties for inefficient tool use.
+The current efficiency reward combines final-answer correctness with tool-use quality.
 
-The reward is:
+**Reward version: v1**
+
+The current implementation rewards:
+
+* correct final answers
+* correct tool sequences
+* correct tool arguments
+
+and penalizes:
+
+* missing required steps
+* unnecessary calls
+* invalid calls
+
+Conceptually:
 
 ```text
 R = R_correctness
-    - 0.01 × unnecessary_calls
-    - 0.05 × invalid_calls
+    + 0.10 × tool_selection_correct
+    + 0.10 × argument_correct
+    - 0.05 × missing_required_steps
+    - 0.05 × unnecessary_calls
+    - 0.10 × invalid_calls
 ```
 
 where:
@@ -256,31 +348,27 @@ R_correctness =
     0 otherwise
 ```
 
-Therefore, correctness currently dominates efficiency:
+This means final-answer correctness remains the largest component of the reward, while tool-use behavior provides additional signal.
 
-```text
-Correct answer, no penalties → 1.00
-
-Correct answer + 2 unnecessary calls → 0.98
-
-Incorrect answer + 2 unnecessary calls → -0.02
-
-Incorrect answer + 1 unnecessary call → -0.01
-```
-
-This is intentional for the current experiment: **getting the task right is much more important than saving a small number of tool calls.**
-
-Importantly, tool correctness does **not** override the final-answer judge.
-
-A trajectory can therefore have:
+For example, a trajectory with:
 
 ```text
 ANSWER CORRECT: True
-TOOL SELECTION: False
-REWARD: 0.98
+TOOL SELECTION: True
+ARGUMENT CORRECT: True
 ```
 
-The reward is primarily based on whether the final answer was judged correct, with tool-use penalties applied afterward.
+receives:
+
+```text
+1.20
+```
+
+before any penalties.
+
+A correct answer with poor tool behavior can still receive a lower reward because of missing, unnecessary, or invalid calls.
+
+Importantly, **tool correctness does not override the final-answer judge**.
 
 ---
 
@@ -289,13 +377,13 @@ The reward is primarily based on whether the final answer was judged correct, wi
 The latest evaluation generated:
 
 ```text
-8 trajectories
+9 trajectories
 ```
 
 and saved them as:
 
 ```text
-multistep_v2_trajectories_20260803_120535_profile_subject.jsonl
+multistep_v2_trajectories_20260804_080714_profile_subject.jsonl
 ```
 
 The latest run exposed several important problems in the current agent/evaluator combination.
@@ -315,41 +403,25 @@ The untrained model sometimes:
 Examples from the latest run include:
 
 ```text
-CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book)
+CALL_LOOKUP(profile subject birthplace)
+CALL_LOOKUP(profile subject book)
 ```
 
-and:
+being emitted as one malformed action, as well as repeated calls such as:
 
 ```text
 CALL_LOOKUP(profile subject book)
 ```
 
-repeated several times.
-
-The model also produced incorrect answers such as:
-
-```text
-The book ... was published in 1948.
-```
-
-when the expected publication year was 2015.
+The model also produced incorrect answers and sometimes returned internal tool-call text instead of an answer.
 
 ### Evaluator problems
 
-The latest run also showed that the evaluator itself still needs work.
+The latest runs also showed that the evaluator itself still needs validation.
 
-For example, one trajectory produced:
+The semantic judge has previously produced false positives for answers containing incomplete or invalid information. This is important because a judge error could eventually become a reward error during RL.
 
-```text
-ANSWER:
-INVALID_CALCULATOR_EXPRESSION: 2021 - AGE(profile subject death year)
-```
-
-but the Qwen judge marked the answer as correct.
-
-This means the current semantic judge can still produce **false positives** despite the explicit rejection rules.
-
-The tool-trajectory evaluator also currently treats malformed combined actions as invalid tool sequences, which means the reported tool-selection and efficiency metrics should be treated as **diagnostic rather than final benchmark numbers**.
+The current tool-trajectory evaluator also treats malformed combined actions as invalid tool sequences. Therefore, the reported tool-selection and efficiency metrics should currently be treated as **diagnostic rather than final benchmark numbers**.
 
 This is an important distinction:
 
@@ -375,16 +447,20 @@ This is an important distinction:
 * Implement a semantic final-answer judge
 * Add explicit rejection of obvious tool-call/non-answer outputs
 * Add an efficiency reward
+* Define Reward v1
+* Freeze the current multi-step evaluation set for RL experiment v1
+* Save the multi-step baseline trajectories
+* Save the baseline metrics
 * Run the first multi-step efficiency evaluation
-* Save multi-step evaluation trajectories
 
 ### Current
 
 * 🟡 Multi-step evaluator is functional but still needs validation
-* 🟡 Semantic judge can produce occasional false positives
+* 🟡 Semantic judge needs continued validation against false positives/negatives
 * 🟡 Tool-trajectory parsing needs to handle malformed/combined actions more cleanly
 * 🟡 Efficiency metrics are currently diagnostic
-* 🟡 Reward design is implemented but has not been used for RL training
+* 🟡 Reward v1 is implemented but has not been used for RL training
+* 🟡 Frozen baseline artifacts are now being preserved for comparison
 * 🔴 No model parameters have been updated yet
 * 🔴 No RL training has been performed
 
@@ -440,11 +516,19 @@ agent-lab/
 ├── dataset.py
 ├── generate_dataset.py
 ├── evaluate.py
+├── baselines/
+│   └── multistep_baseline_v1.json
+├── experiments/
+│   └── rl_v1_results.jsonl
 ├── baseline_trajectories.jsonl
 ├── baseline_multistep_trajectories.jsonl
 ├── multistep_v2_trajectories_*.jsonl
 └── README.md
 ```
+
+The `baselines/` directory contains frozen baseline metrics.
+
+The `experiments/` directory will contain checkpoint-level RL results.
 
 ---
 
@@ -474,7 +558,7 @@ Allow the model to make multiple tool-use decisions before producing a final ans
 
 **Initial version complete.**
 
-## 3. Validate the evaluator
+## 3. Validate and freeze the evaluator
 
 Before RL training, make sure that:
 
@@ -484,8 +568,9 @@ Before RL training, make sure that:
 * unnecessary calls are counted correctly
 * reward values match the intended equation
 * evaluation results can be reproduced
+* baseline metrics and trajectories are preserved
 
-**Current priority.**
+**Current priority / final pre-RL step.**
 
 ## 4. Formalize the RL environment
 
@@ -495,24 +580,26 @@ Define:
 * **Action:** tool call or final answer
 * **Observation:** tool result
 * **Terminal condition:** final answer or maximum step limit
-* **Reward:** final correctness plus efficiency penalties
+* **Reward:** final correctness plus tool-use quality
 
-## 5. Train with RL
+## 5. Run a small RL experiment
 
-Start with a simple method such as:
+Start with a small number of training updates rather than a long training run.
+
+Evaluate the model periodically against the **same frozen evaluation set**.
+
+Track:
+
+* Final-answer accuracy
+* Average reward
+* Invalid calls
+* Unnecessary calls
+
+Store the results in:
 
 ```text
-REINFORCE
+experiments/rl_v1_results.jsonl
 ```
-
-Then investigate:
-
-```text
-PPO
-GRPO
-```
-
-if the environment and reward signal are stable enough.
 
 ## 6. Compare trained vs. untrained
 
@@ -556,4 +643,4 @@ The central question remains:
 
 > **Can reinforcement learning improve Qwen's sequential tool-use decisions?**
 
-At the current stage, the project has reached the point where the next major milestone is not more model experimentation. It is making the **evaluation/reward loop trustworthy enough to serve as an RL signal**.
+At the current stage, the project has reached the point where the next major milestone is not more model experimentation. It is making the **evaluation/reward loop trustworthy enough to serve as an RL signal**, then running a small controlled RL experiment against the frozen baseline.

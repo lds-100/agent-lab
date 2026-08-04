@@ -35,9 +35,7 @@ def analyze_baseline(path):
 
     for trajectory in trajectories:
         task_data = next(
-            t
-            for t in evaluate.MULTISTEP_TASKS
-            if t["task"] == trajectory["task"]
+            t for t in evaluate.MULTISTEP_TASKS if t["task"] == trajectory["task"]
         )
 
         # Ignore answer correctness for now.
@@ -84,28 +82,20 @@ def analyze_baseline(path):
 
     print("\nMetric Summary")
     print(
-        f"Tool selection correct: "
-        f"{sum(r['tool_selection_correct'] for r in results)}"
+        f"Tool selection correct: {sum(r['tool_selection_correct'] for r in results)}"
     )
-    print(
-        f"Argument correct: "
-        f"{sum(r['argument_correct'] is True for r in results)}"
-    )
-    print(
-        f"Total missing steps: "
-        f"{sum(r['missing_required_steps'] for r in results)}"
-    )
-    print(
-        f"Total invalid calls: "
-        f"{sum(r['invalid_calls'] for r in results)}"
-    )
-    print(
-        f"Total unnecessary calls: "
-        f"{sum(r['unnecessary_calls'] for r in results)}"
-    )
+    print(f"Argument correct: {sum(r['argument_correct'] is True for r in results)}")
+    print(f"Total missing steps: {sum(r['missing_required_steps'] for r in results)}")
+    print(f"Total invalid calls: {sum(r['invalid_calls'] for r in results)}")
+    print(f"Total unnecessary calls: {sum(r['unnecessary_calls'] for r in results)}")
 
 
 if __name__ == "__main__":
     analyze_baseline(
-        "baselines/multistep_v2_trajectories_20260803_120535_profile_subject.jsonl",
+        "baselines/multistep_v2_trajectories_20260804_080714_profile_subject.jsonl",
     )
+
+
+# Frozen baseline
+# baseline_multistep_v2_20260804.jsonl
+# Aug 4, 2026

@@ -12,11 +12,9 @@ SYSTEM_PROMPT_TOOLS = (
 
 SYSTEM_PROMPT_TOOLS = (
     "You are an agent that may either call one tool or answer the user's question. "
-
     "If you still need information, output exactly one tool call and nothing else. "
     "For arithmetic, output CALL_CALCULATOR(expression). "
     "For information about the profile subject, output CALL_LOOKUP(topic). "
-
     "The lookup tool contains the profile subject's birth year, death year, "
     "birthplace, book, and book publication year. "
     "Use natural-language lookup topics such as: "
@@ -25,14 +23,11 @@ SYSTEM_PROMPT_TOOLS = (
     "CALL_LOOKUP(profile subject birthplace), "
     "CALL_LOOKUP(profile subject book), "
     "CALL_LOOKUP(profile subject book publication year). "
-
     "Retrieve each required fact separately. "
     "Do not guess profile subject facts. "
-
     "Once you have enough information to answer the question, "
     "do NOT call another tool. "
     "Instead, reply with the final answer in natural language. "
-
     "Output either one tool call or the final answer."
 )
 

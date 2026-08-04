@@ -1,3 +1,4 @@
+import json
 import re
 
 from agent import agent
@@ -71,6 +72,8 @@ MULTISTEP_TASKS_CALCULATOR = [
     },
 ]
 
+# Frozen evaluation set for RL experiment v1.
+# Do not modify during training.
 MULTISTEP_TASKS = [
     {
         "task": "Where was the profile subject born, and what book did they write?",
@@ -166,129 +169,6 @@ MULTISTEP_TASKS = [
 
 def judge_answer(task, expected_answer, actual_answer):
     """
-    Judge whether the agent's final answer correctly answers the task.
-
-    Performs basic normalization/rejection of obvious tool-call outputs,
-    then uses Qwen for semantic evaluation.
-    """
-
-    actual = actual_answer.strip().lower()
-
-    # Normalize common variations of tool-call names so that:
-    # CALL_LOOKUP
-    # Call Lookup
-    # call_lookup
-    # CALL-LOOKUP
-    # are all detected as tool calls.
-    normalized = actual.replace("_", " ").replace("-", " ")
-
-    # Reject empty answers.
-    if not actual:
-        return False
-
-    # Reject answers that are actually tool calls rather than answers.
-    if "call lookup" in normalized:
-        return False
-
-    if "call calculator" in normalized:
-        return False
-
-    # Reject obvious tool/environment failures.
-    if "no information found" in actual:
-        return False
-
-    # Reject obvious refusal/non-answer responses.
-    if "i'm sorry" in actual:
-        return False
-
-    if "i cannot" in actual or "i can't" in actual:
-        return False
-
-    if "please provide more" in actual:
-        return False
-
-    judge_prompt = f"""
-    TASK:
-    {task}
-
-    EXPECTED ANSWER:
-    {expected_answer}
-
-    AGENT FINAL ANSWER:
-    {actual_answer}
-
-    Does the AGENT FINAL ANSWER correctly answer the TASK?
-
-    Return TRUE only if:
-    - Every required fact is present.
-    - No required fact is missing.
-    - No fact is incorrect or contradictory.
-    - The answer is semantically equivalent to the expected answer.
-
-    Never infer missing facts.
-
-    Return exactly one word:
-
-    TRUE
-
-    or
-
-    FALSE
-
-    Do not provide an explanation.
-    """.strip()
-
-    prompt = tokenizer.apply_chat_template(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "You are a strict binary answer evaluator. "
-                    "Compare the expected answer and the agent's final answer. "
-                    "Never infer missing facts. "
-                    "Return exactly one word: TRUE or FALSE."
-                ),
-            },
-            {
-                "role": "user",
-                "content": judge_prompt,
-            },
-        ],
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-    ).to(model.device)
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=3,
-        do_sample=False,
-    )
-
-    judgment = (
-        tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[-1] :],
-            skip_special_tokens=True,
-        )
-        .strip()
-        .upper()
-    )
-
-    if judgment.startswith("TRUE"):
-        return True
-
-    if judgment.startswith("FALSE"):
-        return False
-
-    # Fail closed if the judge does not return TRUE/FALSE.
-    return False
-
-def judge_answer(task, expected_answer, actual_answer):
-    """
     Judge final-answer correctness fact-by-fact.
 
     The expected answer is treated as a semicolon-separated list
@@ -335,9 +215,7 @@ def judge_answer(task, expected_answer, actual_answer):
     # ---------------------------------------------------------
 
     required_facts = [
-        fact.strip()
-        for fact in expected_answer.split(";")
-        if fact.strip()
+        fact.strip() for fact in expected_answer.split(";") if fact.strip()
     ]
 
     if not required_facts:
@@ -348,7 +226,6 @@ def judge_answer(task, expected_answer, actual_answer):
     # ---------------------------------------------------------
 
     for fact in required_facts:
-
         fact_prompt = f"""
 TASK:
 {task}
@@ -439,7 +316,7 @@ FALSE
 
         judgment = (
             tokenizer.decode(
-                outputs[0][inputs["input_ids"].shape[-1]:],
+                outputs[0][inputs["input_ids"].shape[-1] :],
                 skip_special_tokens=True,
             )
             .strip()
@@ -455,6 +332,7 @@ FALSE
 
     # Every required fact was verified.
     return True
+
 
 def evaluate_single_step():
     results = []
@@ -531,10 +409,7 @@ def evaluate_tool_trajectory(
     expected_tools,
     reference_actions=None,
 ):
-    actual_actions = [
-        step["action"].strip()
-        for step in steps
-    ]
+    actual_actions = [step["action"].strip() for step in steps]
 
     actual_tools = []
     invalid_calls = 0
@@ -549,15 +424,9 @@ def evaluate_tool_trajectory(
             invalid_calls += 1
 
     # Ignore invalid actions when checking tool selection.
-    valid_tools = [
-        tool
-        for tool in actual_tools
-        if tool != "invalid"
-    ]
+    valid_tools = [tool for tool in actual_tools if tool != "invalid"]
 
-    tool_selection_correct = (
-        valid_tools == expected_tools
-    )
+    tool_selection_correct = valid_tools == expected_tools
 
     argument_correct_per_call = []
 
@@ -571,16 +440,10 @@ def evaluate_tool_trajectory(
         ]
 
     known_argument_results = [
-        result
-        for result in argument_correct_per_call
-        if result is not None
+        result for result in argument_correct_per_call if result is not None
     ]
 
-    argument_correct = (
-        all(known_argument_results)
-        if known_argument_results
-        else None
-    )
+    argument_correct = all(known_argument_results) if known_argument_results else None
 
     if reference_actions is not None:
         reference_index = 0
@@ -589,8 +452,7 @@ def evaluate_tool_trajectory(
         # Count calls that actually advance the reference trajectory.
         for action in actual_actions:
             if not (
-                LOOKUP_PATTERN.fullmatch(action)
-                or CALCULATOR_PATTERN.fullmatch(action)
+                LOOKUP_PATTERN.fullmatch(action) or CALCULATOR_PATTERN.fullmatch(action)
             ):
                 continue
 
@@ -607,9 +469,7 @@ def evaluate_tool_trajectory(
             else:
                 unnecessary_calls += 1
 
-        missing_required_steps = (
-            len(reference_actions) - reference_index
-        )
+        missing_required_steps = len(reference_actions) - reference_index
 
     else:
         missing_required_steps = max(
@@ -696,3 +556,40 @@ def evaluate_multistep_efficiency():
         print("REWARD:", reward)
 
     return results
+
+
+def save_eval_summary(
+    checkpoint,
+    results,
+    output_file="eval_results.jsonl",
+):
+    num_trajectories = len(results)
+
+    answer_accuracy = (
+        sum(r["answer_correct"] for r in results) / num_trajectories
+        if num_trajectories
+        else 0.0
+    )
+
+    average_reward = (
+        sum(r["reward"] for r in results) / num_trajectories
+        if num_trajectories
+        else 0.0
+    )
+
+    invalid_calls = sum(r["invalid_calls"] for r in results)
+
+    unnecessary_calls = sum(r["unnecessary_calls"] for r in results)
+
+    summary = {
+        "checkpoint": checkpoint,
+        "answer_accuracy": round(answer_accuracy, 3),
+        "average_reward": round(average_reward, 3),
+        "invalid_calls": invalid_calls,
+        "unnecessary_calls": unnecessary_calls,
+    }
+
+    with open(output_file, "a") as f:
+        f.write(json.dumps(summary) + "\n")
+
+    return summary

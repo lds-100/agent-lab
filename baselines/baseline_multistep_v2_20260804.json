@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "training": "none",
+  "num_tasks": 9,
+  "answer_accuracy": 0.111,
+  "average_reward": -0.23,
+  "tool_selection_correct": 1,
+  "argument_correct": 3,
+  "missing_steps": 23,
+  "invalid_calls": 11,
+  "unnecessary_calls": 5,
+  "date": "2026-08-04"
+}

@@ -8,6 +8,7 @@ def calculate_multistep_reward(answer_correct):
     return 1 if answer_correct else 0
 
 
+# Reward v1
 def calculate_multistep_efficiency_reward(
     answer_correct,
     tool_eval,
