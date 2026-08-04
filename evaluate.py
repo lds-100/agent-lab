@@ -1,7 +1,7 @@
-from agent import agent
-from model import model, tokenizer
 import re
 
+from agent import agent
+from model import model, tokenizer
 from reward import (
     calculate_multistep_efficiency_reward,
     calculate_reward,
