@@ -4,7 +4,7 @@ A research sandbox for training, evaluating, and understanding tool-using langua
 
 # Project 0 — Tiny Tool-Using Agent
 
-A small research project exploring whether reinforcement learning (RL) can improve an LLM's ability to make better tool-use decisions without changing the underlying model.
+A small research project exploring whether reinforcement learning (RL) can improve an LLM's ability to make better tool-use decisions without changing the underlying model's general knowledge.
 
 We use **Qwen 2.5 1.5B Instruct** and build a small environment around it.
 
@@ -14,7 +14,7 @@ We use **Qwen 2.5 1.5B Instruct** and build a small environment around it.
 
 Here, a **policy** simply means the model's decisions about what action to take next.
 
-We are deliberately building the project in stages. The current work is still the **untrained baseline and evaluation stage**, not RL training.
+We are deliberately building the project in stages. The project has now reached the point where the first direct RL experiment was attempted on a GPU, revealing a memory limitation that motivates the next architectural change: **LoRA-based training**.
 
 ```text
 ✅ Single-tool baseline
@@ -27,11 +27,15 @@ We are deliberately building the project in stages. The current work is still th
         ↓
 ✅ Multi-step tasks
         ↓
-🟡 Multi-step efficiency evaluation
+✅ Multi-step efficiency evaluation
         ↓
-🔜 RL environment
+✅ RL environment
         ↓
-🔜 RL training
+🟡 First GPU RL attempt
+        ↓
+🟡 Introduce LoRA
+        ↓
+🔜 Small RL training experiment
         ↓
 🔜 Compare trained vs. untrained
 ```
@@ -55,11 +59,11 @@ As the environment becomes more complex, we want to understand:
 
 The eventual goal is to train a small model in this environment and compare its learned behavior against the frozen untrained baseline.
 
-We will start with a simple RL method such as **REINFORCE** before investigating more advanced methods such as PPO or GRPO.
+We initially planned to update the full model with a simple RL method such as **REINFORCE**. The first GPU experiment showed that full-model training does not fit comfortably within the available GPU memory, so we are introducing **LoRA** before continuing the RL experiment.
 
 ---
 
-## Current Architecture
+# Current Architecture
 
 The agent currently has two tools:
 
@@ -104,7 +108,7 @@ This is the behavior we eventually want to improve through RL.
 
 ---
 
-## Single-Step Baseline
+# Single-Step Baseline
 
 We created a 10-task evaluation set covering calculator and lookup requests.
 
@@ -129,9 +133,9 @@ baseline_trajectories.jsonl
 
 ---
 
-## Baseline Snapshot
+# Baseline Snapshot
 
-Before beginning RL training, the current multi-step evaluation results are being preserved as a separate baseline artifact.
+Before beginning RL training, the current multi-step evaluation results are preserved as a separate baseline artifact.
 
 The baseline metrics are stored in:
 
@@ -159,7 +163,7 @@ The current baseline evaluation uses 9 trajectories.
 
 ---
 
-## Reward Version
+# Reward Version
 
 The current efficiency reward used for the first RL experiment is designated:
 
@@ -186,7 +190,7 @@ Reward version: v3
 
 ---
 
-## Frozen Evaluation Set
+# Frozen Evaluation Set
 
 The current `MULTISTEP_TASKS` set is the frozen evaluation set for the first RL experiment.
 
@@ -202,7 +206,7 @@ Future unseen or generalization tasks should be placed in a separate evaluation 
 
 ---
 
-## Trajectories
+# Trajectories
 
 A **trajectory** is the sequence of actions and observations produced during one task.
 
@@ -219,7 +223,9 @@ A single-step trajectory looks like:
 }
 ```
 
-These records let us inspect what the agent did and will eventually provide the data structure needed for RL.
+These records let us inspect what the agent did and provide the data structure needed for RL.
+
+For the RL implementation, the agent also records the probability assigned to generated actions. REINFORCE uses this information to determine how strongly the model should reinforce or discourage a sampled trajectory.
 
 ---
 
@@ -267,7 +273,7 @@ These tasks are deliberately more difficult than the original two-step calculato
 
 ---
 
-## Final-Answer Judge
+# Final-Answer Judge
 
 Multi-step correctness is currently evaluated using a **Qwen-based semantic judge** rather than exact string matching.
 
@@ -372,7 +378,167 @@ Importantly, **tool correctness does not override the final-answer judge**.
 
 ---
 
-## Current Multi-Step Evaluation Run
+# First GPU Training Attempt
+
+After implementing the first REINFORCE training loop, we ran a small GPU test using Google Colab.
+
+The model successfully loaded and generated trajectories, but the first optimizer update failed with a CUDA out-of-memory error.
+
+The available GPU had approximately:
+
+```text
+GPU RAM: 15 GB
+```
+
+The model itself could fit in memory for inference, but **full-model training could not**.
+
+The failure occurred during:
+
+```python
+optimizer.step()
+```
+
+The optimizer was attempting to maintain additional training state for the model's parameters. This pushed memory usage beyond the available GPU capacity.
+
+The important distinction is:
+
+```text
+Inference:
+Model weights
+        ↓
+Fits on GPU
+
+Full-model training:
+Model weights
++ gradients
++ optimizer state
++ activations
+        ↓
+Does not fit comfortably
+```
+
+This was a useful result rather than a failure of the overall experiment.
+
+It showed that the original plan of directly updating every model parameter is too memory-intensive for the hardware we are currently using.
+
+---
+
+# Why We Are Adding LoRA
+
+We are now introducing **LoRA** before continuing RL training.
+
+LoRA is a way of training a model without changing every parameter in the model.
+
+Instead of asking the GPU to update the entire model, we keep the original model mostly fixed and add a much smaller set of trainable parameters.
+
+Conceptually:
+
+```text
+Full-model training
+
+Qwen
+████████████████████
+Every parameter can change
+        ↓
+Large memory requirement
+```
+
+versus:
+
+```text
+LoRA training
+
+Qwen
+████████████████████
+Mostly frozen
+
+      +
+    small
+   trainable
+   adapter
+      ↓
+Much smaller training requirement
+```
+
+The goal is not to change the research question.
+
+We still want to answer:
+
+> **Can reinforcement learning improve Qwen's sequential tool-use decisions?**
+
+LoRA changes **how we make the model trainable on our available hardware**, not what we are trying to measure.
+
+---
+
+# Why LoRA Fits This Experiment
+
+The model is already capable of performing many of the tasks.
+
+Our baseline results show that the problem is primarily about **behavior and decision-making**:
+
+* choosing the correct tool
+* choosing the correct lookup
+* knowing when another tool call is necessary
+* avoiding unnecessary calls
+* producing a final answer at the correct time
+* using retrieved information correctly
+
+We therefore do not necessarily need to rewrite the entire model.
+
+A small trainable adapter may be enough to change the model's behavior toward better tool-use strategies.
+
+This also makes the experiment more practical:
+
+```text
+Frozen Qwen
+     +
+LoRA adapter
+     ↓
+REINFORCE
+     ↓
+Learned tool-use behavior
+```
+
+The original Qwen weights remain available as the reference model, while the LoRA parameters capture the learned changes.
+
+---
+
+# LoRA and the Baseline
+
+The frozen baseline remains extremely important.
+
+The baseline represents:
+
+```text
+Original Qwen
++
+No training
+```
+
+The RL experiment will instead produce:
+
+```text
+Original Qwen
++
+LoRA adapter trained with RL
+```
+
+We can then compare:
+
+```text
+                 Final answer   Tool efficiency
+Frozen Qwen          ?                ?
+       vs.
+Qwen + LoRA + RL     ?                ?
+```
+
+This lets us determine whether the learned adapter actually changes behavior in the desired direction.
+
+The baseline model and baseline trajectories should never be overwritten by the LoRA experiment.
+
+---
+
+# Current Multi-Step Evaluation Run
 
 The latest evaluation generated:
 
@@ -388,7 +554,7 @@ multistep_v2_trajectories_20260804_080714_profile_subject.jsonl
 
 The latest run exposed several important problems in the current agent/evaluator combination.
 
-### Agent problems
+## Agent problems
 
 The untrained model sometimes:
 
@@ -415,7 +581,7 @@ CALL_LOOKUP(profile subject book)
 
 The model also produced incorrect answers and sometimes returned internal tool-call text instead of an answer.
 
-### Evaluator problems
+## Evaluator problems
 
 The latest runs also showed that the evaluator itself still needs validation.
 
@@ -452,6 +618,9 @@ This is an important distinction:
 * Save the multi-step baseline trajectories
 * Save the baseline metrics
 * Run the first multi-step efficiency evaluation
+* Implement the first REINFORCE training loop
+* Run an initial GPU training test
+* Confirm that PEFT/LoRA is available in the training environment
 
 ### Current
 
@@ -459,34 +628,16 @@ This is an important distinction:
 * 🟡 Semantic judge needs continued validation against false positives/negatives
 * 🟡 Tool-trajectory parsing needs to handle malformed/combined actions more cleanly
 * 🟡 Efficiency metrics are currently diagnostic
-* 🟡 Reward v1 is implemented but has not been used for RL training
-* 🟡 Frozen baseline artifacts are now being preserved for comparison
-* 🔴 No model parameters have been updated yet
-* 🔴 No RL training has been performed
+* 🟡 Reward v1 is implemented
+* 🟡 Frozen baseline artifacts are preserved for comparison
+* 🟡 REINFORCE environment and training loop are implemented
+* 🟡 Full-model RL training exceeds the available GPU memory
+* 🟡 LoRA integration is the current implementation step
+* 🔴 No meaningful RL training run has completed yet
 
 ---
 
-# What We Have Learned So Far
-
-The baseline is already exposing the type of behavior that makes this project interesting.
-
-The model is not simply failing because it cannot answer questions. It can sometimes retrieve the correct information but still:
-
-* take unnecessary actions
-* repeat actions
-* fail to combine observations correctly
-* produce malformed tool calls
-* stop too early
-* perform calculations incorrectly
-* output an internal tool call instead of an answer
-
-This suggests that the eventual RL problem is genuinely about **sequential decision-making**, rather than simply teaching the model more facts.
-
-The current results also demonstrate why the evaluator needs to be reliable before it becomes an RL reward signal.
-
----
-
-## Dataset Generation
+# Dataset Generation
 
 Evaluation and dataset generation are kept separate so that running an evaluation does not accidentally change our frozen baselines.
 
@@ -505,7 +656,7 @@ This separation becomes increasingly important once RL training begins.
 
 ---
 
-## Project Structure
+# Project Structure
 
 ```text
 agent-lab/
@@ -516,6 +667,7 @@ agent-lab/
 ├── dataset.py
 ├── generate_dataset.py
 ├── evaluate.py
+├── train.py
 ├── baselines/
 │   └── multistep_baseline_v1.json
 ├── experiments/
@@ -528,7 +680,7 @@ agent-lab/
 
 The `baselines/` directory contains frozen baseline metrics.
 
-The `experiments/` directory will contain checkpoint-level RL results.
+The `experiments/` directory will contain checkpoint-level RL results and, eventually, LoRA training artifacts.
 
 ---
 
@@ -556,11 +708,11 @@ Reward
 
 Allow the model to make multiple tool-use decisions before producing a final answer.
 
-**Initial version complete.**
+**Complete.**
 
 ## 3. Validate and freeze the evaluator
 
-Before RL training, make sure that:
+Before relying on RL results, make sure that:
 
 * final-answer correctness is reliable
 * obvious tool-call outputs are rejected
@@ -570,7 +722,7 @@ Before RL training, make sure that:
 * evaluation results can be reproduced
 * baseline metrics and trajectories are preserved
 
-**Current priority / final pre-RL step.**
+**Current ongoing priority.**
 
 ## 4. Formalize the RL environment
 
@@ -582,9 +734,29 @@ Define:
 * **Terminal condition:** final answer or maximum step limit
 * **Reward:** final correctness plus tool-use quality
 
-## 5. Run a small RL experiment
+**Complete for the initial REINFORCE implementation.**
 
-Start with a small number of training updates rather than a long training run.
+## 5. Add LoRA
+
+Modify the model-loading/training setup so that:
+
+```text
+Qwen base model
+      ↓
+mostly frozen
+      +
+LoRA adapter
+      ↓
+trainable parameters
+```
+
+The first goal is simply to make a training step fit within the available GPU memory.
+
+The reward function and frozen evaluation set should remain unchanged.
+
+## 6. Run a small LoRA + REINFORCE experiment
+
+Start with a very small number of training updates.
 
 Evaluate the model periodically against the **same frozen evaluation set**.
 
@@ -594,6 +766,9 @@ Track:
 * Average reward
 * Invalid calls
 * Unnecessary calls
+* Correct tool selection
+* Correct tool arguments
+* Number of tool calls
 
 Store the results in:
 
@@ -601,7 +776,7 @@ Store the results in:
 experiments/rl_v1_results.jsonl
 ```
 
-## 6. Compare trained vs. untrained
+## 7. Compare trained vs. untrained
 
 The trained model should be compared against the frozen baseline on:
 
@@ -621,26 +796,32 @@ The key requirement is to preserve a **frozen untrained baseline** so that impro
 
 # The Central Experiment
 
-The final experiment is:
+The experiment is now:
 
 ```text
-Frozen Qwen
-    ↓
-Baseline evaluation
-    ↓
-Observe tool-use behavior
+                    Frozen Qwen
+                        ↓
+                 Baseline evaluation
+                        ↓
+              Observe tool-use behavior
 
-        versus
+                         versus
 
-RL-trained Qwen
-    ↓
-Same evaluation
-    ↓
-Measure behavioral changes
+                 Frozen Qwen
+                      +
+                 LoRA adapter
+                      ↓
+                  REINFORCE
+                      ↓
+              Learned tool-use behavior
+                      ↓
+                Same evaluation
 ```
 
 The central question remains:
 
 > **Can reinforcement learning improve Qwen's sequential tool-use decisions?**
 
-At the current stage, the project has reached the point where the next major milestone is not more model experimentation. It is making the **evaluation/reward loop trustworthy enough to serve as an RL signal**, then running a small controlled RL experiment against the frozen baseline.
+The GPU experiment taught us an important implementation lesson: full-model RL training is too memory-intensive for the current hardware. LoRA allows us to continue the same experiment while training only a small portion of the model.
+
+The next milestone is therefore **not to redesign the reward or increase the training run**. It is to get a single LoRA + REINFORCE training step working successfully on the available GPU, verify that the loss and gradients behave as expected, and only then scale up the experiment.
