@@ -1,0 +1,10 @@
+NUM_UPDATES = 1
+# EVAL_EVERY = 100
+CHECKPOINT_EVERY = 1
+CHECKPOINT_PREFIX = "lora_test_checkpoint"
+
+REWARD_VERSION = "v1"
+EXPERIMENT_NAME = "rl_v1"
+
+MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+MAX_STEPS = 4
