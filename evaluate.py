@@ -166,6 +166,18 @@ MULTISTEP_TASKS = [
     },
 ]
 
+MULTISTEP_TASKS = [
+    {
+        "task": "Where was the profile subject born, and what book did they write?",
+        "expected_answer": "Portland, Oregon; The Glass Harbor",
+        "expected_tools": ["lookup", "lookup"],
+        "reference_actions": [
+            "CALL_LOOKUP(profile subject birthplace)",
+            "CALL_LOOKUP(profile subject book)",
+        ],
+    },
+]
+
 
 def judge_answer(task, expected_answer, actual_answer):
     """
