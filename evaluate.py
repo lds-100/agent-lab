@@ -287,6 +287,174 @@ def judge_answer(task, expected_answer, actual_answer):
     # Fail closed if the judge does not return TRUE/FALSE.
     return False
 
+def judge_answer(task, expected_answer, actual_answer):
+    """
+    Judge final-answer correctness fact-by-fact.
+
+    The expected answer is treated as a semicolon-separated list
+    of required facts. Each fact is independently checked against
+    the agent's final answer using Qwen.
+
+    The agent must explicitly provide every required fact.
+    Missing even one fact => False.
+    """
+
+    actual = actual_answer.strip().lower()
+    normalized = actual.replace("_", " ").replace("-", " ")
+
+    # Reject empty answers.
+    if not actual:
+        return False
+
+    # Reject tool calls masquerading as answers.
+    if "call lookup" in normalized:
+        return False
+
+    if "call calculator" in normalized:
+        return False
+
+    # Reject obvious environment failures.
+    if "no information found" in actual:
+        return False
+
+    if "invalid_calculator_expression" in actual:
+        return False
+
+    # Reject obvious refusals/non-answers.
+    if "i'm sorry" in actual:
+        return False
+
+    if "i cannot" in actual or "i can't" in actual:
+        return False
+
+    if "please provide more" in actual:
+        return False
+
+    # ---------------------------------------------------------
+    # Split expected answer into individual required facts.
+    # ---------------------------------------------------------
+
+    required_facts = [
+        fact.strip()
+        for fact in expected_answer.split(";")
+        if fact.strip()
+    ]
+
+    if not required_facts:
+        return False
+
+    # ---------------------------------------------------------
+    # Check every required fact independently.
+    # ---------------------------------------------------------
+
+    for fact in required_facts:
+
+        fact_prompt = f"""
+TASK:
+{task}
+
+REQUIRED FACT:
+{fact}
+
+AGENT FINAL ANSWER:
+{actual_answer}
+
+Determine whether the AGENT FINAL ANSWER explicitly contains
+the REQUIRED FACT.
+
+Rules:
+- Return TRUE only if the required fact is actually stated.
+- Do not infer information that is missing.
+- Do not use information from the TASK to fill in missing information.
+- Do not use information from the REQUIRED FACT to fill in missing information.
+- Semantically equivalent wording is acceptable.
+- Different capitalization is acceptable.
+- Different formatting is acceptable.
+- Extra correct information is acceptable.
+- If the required fact is missing, return FALSE.
+- If the agent contradicts the required fact, return FALSE.
+
+Example:
+
+REQUIRED FACT:
+2015
+
+AGENT FINAL ANSWER:
+The Glass Harbor
+
+Result:
+FALSE
+
+Example:
+
+REQUIRED FACT:
+2015
+
+AGENT FINAL ANSWER:
+The Glass Harbor was published in 2015.
+
+Result:
+TRUE
+
+Return exactly one word:
+
+TRUE
+
+or
+
+FALSE
+""".strip()
+
+        prompt = tokenizer.apply_chat_template(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a strict binary fact verifier. "
+                        "Verify only whether the required fact is "
+                        "explicitly present in the agent answer. "
+                        "Never infer missing information. "
+                        "Return exactly TRUE or FALSE."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": fact_prompt,
+                },
+            ],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        inputs = tokenizer(
+            prompt,
+            return_tensors="pt",
+        ).to(model.device)
+
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=3,
+            do_sample=False,
+        )
+
+        judgment = (
+            tokenizer.decode(
+                outputs[0][inputs["input_ids"].shape[-1]:],
+                skip_special_tokens=True,
+            )
+            .strip()
+            .upper()
+        )
+
+        # Fail closed.
+        if judgment.startswith("FALSE"):
+            return False
+
+        if not judgment.startswith("TRUE"):
+            return False
+
+    # Every required fact was verified.
+    return True
 
 def evaluate_single_step():
     results = []
