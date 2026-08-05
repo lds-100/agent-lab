@@ -3,14 +3,11 @@ import torch
 from env import calculator, lookup
 from model import model, tokenizer
 
-MAX_NEW_TOKENS = 50
-SYSTEM_PROMPT_BASELINE = "You have access to tools. Choose exactly one action."
 
-SYSTEM_PROMPT_TOOLS = (
-    "Choose exactly one action. "
-    "For arithmetic, output CALL_CALCULATOR(expression). "
-    "For information requests, output CALL_LOOKUP(topic). "
-    "Output nothing else."
+MAX_NEW_TOKENS = 50
+
+SYSTEM_PROMPT_BASELINE = (
+    "You have access to tools. Choose exactly one action."
 )
 
 SYSTEM_PROMPT_TOOLS = (
@@ -36,20 +33,42 @@ SYSTEM_PROMPT_TOOLS = (
 
 SYSTEM_PROMPT_FINAL = (
     "Use the tool result to answer the user's original question. "
-    "Give only the final answer."
+    "Give only the final answer. "
     "Be sure to return answers to all parts of the question."
 )
 
 
-def agent(task, max_steps=4):
+def run_episode(
+    model,
+    tokenizer,
+    task,
+    max_steps=4,
+):
+    """
+    Run one complete agent episode.
+
+    The model may make tool calls until it produces a final
+    answer or reaches the maximum number of steps.
+
+    Returns:
+        task
+        steps
+        answer
+    """
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT_TOOLS},
-        {"role": "user", "content": task},
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT_TOOLS,
+        },
+        {
+            "role": "user",
+            "content": task,
+        },
     ]
 
     steps = []
 
-    # Send the current conversation to the model and return its response.
     def generate_response():
         prompt = tokenizer.apply_chat_template(
             messages,
@@ -65,93 +84,102 @@ def agent(task, max_steps=4):
         outputs = model.generate(
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
-            return_dict_in_generate=True,
-            output_scores=True,
         )
 
-        generated_ids = outputs.sequences[:, inputs["input_ids"].shape[-1] :]
+        generated_ids = (
+            outputs.sequences[:, inputs["input_ids"].shape[-1] :]
+            if hasattr(outputs, "sequences")
+            else outputs[:, inputs["input_ids"].shape[-1] :]
+        )
 
         response = tokenizer.decode(
             generated_ids[0],
             skip_special_tokens=True,
         ).strip()
 
-        log_prob = torch.tensor(
-            0.0,
-            device=model.device,
-        )
+        return response
 
-        for token_id, score in zip(
-            generated_ids[0],
-            outputs.scores,
-        ):
-            log_probs = torch.log_softmax(
-                score[0],
-                dim=-1,
-            )
-
-            log_prob = log_prob + log_probs[token_id]
-
-        return {"response": response, "log_prob": log_prob}
-
-    # Let the model take up to `max_steps` tool actions.
     for _ in range(max_steps):
-        generation = generate_response()
-        action = generation["response"]
-        log_prob = generation["log_prob"]
+        action = generate_response()
 
-        # Execute the requested tool.
-        if action.startswith("CALL_CALCULATOR"):
-            expression = action[len("CALL_CALCULATOR(") : -1]
+        if action.startswith("CALL_CALCULATOR("):
+            expression = action[
+                len("CALL_CALCULATOR(") : -1
+            ]
+
             result = calculator(expression)
             tool = "calculator"
-        elif action.startswith("CALL_LOOKUP"):
-            topic = action[len("CALL_LOOKUP(") : -1]
+
+        elif action.startswith("CALL_LOOKUP("):
+            topic = action[
+                len("CALL_LOOKUP(") : -1
+            ]
+
             result = lookup(topic)
             tool = "lookup"
+
         else:
-            # The model returned a final answer instead of a tool call.
             return {
                 "task": task,
                 "steps": steps,
                 "answer": action,
             }
 
-        # Record the tool call and feed the result back to the model.
         steps.append(
             {
                 "action": action,
                 "tool": tool,
                 "observation": result,
-                "log_prob": log_prob,
             }
         )
 
         messages.extend(
             [
-                {"role": "assistant", "content": action},
+                {
+                    "role": "assistant",
+                    "content": action,
+                },
                 {
                     "role": "user",
                     "content": (
                         f"Tool result: {result}\n\n"
-                        "If you have enough information, answer the original question. "
+                        "If you have enough information, "
+                        "answer the original question. "
                         "Otherwise, make one more tool call."
                     ),
                 },
             ]
         )
 
-    # If we hit the step limit, ask the model for a final answer.
-    messages.append({"role": "system", "content": SYSTEM_PROMPT_FINAL})
+    messages.append(
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT_FINAL,
+        }
+    )
 
-    final_generation = generate_response()
+    final_answer = generate_response()
 
     return {
         "task": task,
         "steps": steps,
-        "answer": final_generation["response"],
-        "log_prob": final_generation["log_prob"],
+        "answer": final_answer,
     }
+
+
+def agent(task, max_steps=4):
+    """
+    Backward-compatible wrapper for the existing baseline/training code.
+
+    Uses the model and tokenizer imported from model.py.
+    """
+
+    return run_episode(
+        model,
+        tokenizer,
+        task,
+        max_steps=max_steps,
+    )
 
 
 def execute_action(action):
@@ -165,7 +193,9 @@ def execute_action(action):
     """
 
     if action.startswith("CALL_CALCULATOR("):
-        expression = action[len("CALL_CALCULATOR(") : -1]
+        expression = action[
+            len("CALL_CALCULATOR(") : -1
+        ]
 
         result = calculator(expression)
 
@@ -176,7 +206,9 @@ def execute_action(action):
         )
 
     if action.startswith("CALL_LOOKUP("):
-        topic = action[len("CALL_LOOKUP(") : -1]
+        topic = action[
+            len("CALL_LOOKUP(") : -1
+        ]
 
         result = lookup(topic)
 
@@ -198,8 +230,8 @@ def sequence_log_probability(
     generated_ids,
 ):
     """
-    Re-run the generated sequence with gradients enabled and
-    calculate the log probability of the generated tokens.
+    Re-run the generated sequence with gradients enabled
+    and calculate the log probability of the generated tokens.
     """
 
     if generated_ids.numel() == 0:
@@ -248,8 +280,8 @@ def generate_action(messages):
     """
     Generate one action without tracking gradients.
 
-    We separately calculate the log probability of the generated
-    tokens afterward so REINFORCE can backpropagate through them.
+    Training separately calculates the log probability of the
+    generated tokens so REINFORCE can backpropagate through them.
     """
 
     prompt = tokenizer.apply_chat_template(
@@ -272,11 +304,17 @@ def generate_action(messages):
             top_p=0.9,
         )
 
-    generated_ids = outputs[0][inputs["input_ids"].shape[-1] :]
+    generated_ids = (
+        outputs[0][inputs["input_ids"].shape[-1] :]
+    )
 
     action = tokenizer.decode(
         generated_ids,
         skip_special_tokens=True,
     ).strip()
 
-    return action, generated_ids, inputs["input_ids"]
+    return (
+        action,
+        generated_ids,
+        inputs["input_ids"],
+    )
