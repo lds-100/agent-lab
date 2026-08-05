@@ -1,0 +1,218 @@
+[
+  {
+    "task": "Where was the profile subject born, and what book did they write?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "Portland, Oregon"
+      }
+    ],
+    "answer": "Portland, Oregon",
+    "expected_answer": "Portland, Oregon; The Glass Harbor",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": true,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  },
+  {
+    "task": "What book did the profile subject write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "The Glass Harbor"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "The book written by the profile subject, \"The Glass Harbor,\" was published in 2015.",
+    "expected_answer": "The Glass Harbor; 2015",
+    "answer_correct": true,
+    "tool_selection_correct": true,
+    "argument_correct": true,
+    "missing_required_steps": 0,
+    "invalid_calls": 0,
+    "unnecessary_calls": 0,
+    "reward": 1.2000000000000002
+  },
+  {
+    "task": "When was the profile subject born, and when did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)  \nCALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and died around 2015 (exact date unknown).",
+    "expected_answer": "1987; 2021",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": true,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  },
+  {
+    "task": "When was the profile subject born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) , CALL_LOOKUP(profile subject death year), CALL_LOOKUP(profile subject book publication year) - (CALL_LOOKUP(profile subject book publication year) - CALL_LOOKUP(profile subject birth year)) / 10",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "2021"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and died in 2021. They were 34 years old when they died.",
+    "expected_answer": "1987; 2021; 34",
+    "answer_correct": true,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 3,
+    "invalid_calls": 1,
+    "unnecessary_calls": 1,
+    "reward": 0.7
+  },
+  {
+    "task": "Where was the profile subject born, what book did they write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth place)_CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "2015"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)_CALL_LOOKUP(profile subject death year)_CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)_CALL_LOOKUP(profile subject death year)_CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)_CALL_LOOKUP(profile subject death year)_CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987. They wrote a book titled \"The Book\" which was published in 1987.",
+    "expected_answer": "Portland, Oregon; The Glass Harbor; 2015",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 3,
+    "invalid_calls": 4,
+    "unnecessary_calls": 0,
+    "reward": -0.55
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years before their death was the book published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book), CALL_LOOKUP(profile subject book publication year), CALL_LOOKUP(profile subject death year), CALL_LOOKUP(profile subject book publication year) - [year of publication] - [years before death]",
+        "tool": "lookup",
+        "observation": "2021"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year) - 2021",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "The book was written in 2015. The profile subject died in 2021, which is 6 years after the book was published.",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": true,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 2,
+    "unnecessary_calls": 0,
+    "reward": 0.6000000000000001
+  },
+  {
+    "task": "When was the profile subject born, where were they born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)  \nCALL_LOOKUP(profile subject birthplace)  \nCALL_LOOKUP(profile subject death year)  \nCALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "2021"
+      }
+    ],
+    "answer": "The profile subject was born in 1987, born in [birthplace], they died in 2021, and they were [age] years old when they died.",
+    "expected_answer": "1987; Portland, Oregon; 2021; 34",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 1,
+    "unnecessary_calls": 1,
+    "reward": -0.35
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years after publication did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)_CALL_LOOKUP(profile subject death year)CALL_CALCULATOR((CALL_LOOKUP(profile subject death year) - CALL_LOOKUP(profile subject book publication year)) * 12 + (CALL_LOOKUP(profile",
+        "tool": "lookup",
+        "observation": "2021"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)_CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)_CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject wrote \"The Book\" which was published in 2021. They died in 2021. There were no years between their death and the publication of the book.",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 2,
+    "unnecessary_calls": 0,
+    "reward": -0.4
+  },
+  {
+    "task": "What is 500 / 10, and is the result greater than 40?",
+    "steps": [
+      {
+        "action": "CALL_CALCULATOR(500 / 10)",
+        "tool": "calculator",
+        "observation": 50.0
+      },
+      {
+        "action": "CALL_CALCULATOR((50.0 > 40))",
+        "tool": "calculator",
+        "observation": true
+      }
+    ],
+    "answer": "True",
+    "expected_answer": "True",
+    "answer_correct": true,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 1,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": 0.85
+  }
+]
