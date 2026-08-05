@@ -15,7 +15,7 @@ from reward import calculate_multistep_efficiency_reward
 
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 CHECKPOINT_PATH = "/content/agent-lab/experiments/lora_test_checkpoint_-1"
-CHECKPOINT_PATH = "/content/agent-lab/experiments/rl_v2_checkpoint-25"
+CHECKPOINT_PATH = "/content/agent-lab/experiments/rl_v2_checkpoint-50"
 
 RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 RESULTS_PATH = f"experiments/lora_evaluation_{RUN_ID}.json"
