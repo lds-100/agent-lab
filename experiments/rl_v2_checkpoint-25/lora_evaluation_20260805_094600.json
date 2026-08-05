@@ -1,0 +1,198 @@
+[
+  {
+    "task": "Where was the profile subject born, and what book did they write?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth place) and CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "The Glass Harbor"
+      }
+    ],
+    "answer": "The profile subject is likely named \"The Glass Harbor,\" but I don't have enough specific information to determine their exact birthplace or the book they wrote based on this name alone. I would need additional details to provide a precise answer.",
+    "expected_answer": "Portland, Oregon; The Glass Harbor",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": true,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  },
+  {
+    "task": "What book did the profile subject write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "The Glass Harbor"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "The profile subject wrote \"The Glass Harbor\" which was published in 2015.",
+    "expected_answer": "The Glass Harbor; 2015",
+    "answer_correct": true,
+    "tool_selection_correct": true,
+    "argument_correct": true,
+    "missing_required_steps": 0,
+    "invalid_calls": 0,
+    "unnecessary_calls": 0,
+    "reward": 1.2000000000000002
+  },
+  {
+    "task": "When was the profile subject born, and when did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and died around 2016.",
+    "expected_answer": "1987; 2021",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": true,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  },
+  {
+    "task": "When was the profile subject born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) - CALL_LOOKUP(profile subject death year) - (CALL_LOOKUP(profile subject birth year) - CALL_LOOKUP(profile subject death year))",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) - CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) - CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "1987",
+    "expected_answer": "1987; 2021; 34",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 3,
+    "invalid_calls": 3,
+    "unnecessary_calls": 0,
+    "reward": -0.45000000000000007
+  },
+  {
+    "task": "Where was the profile subject born, what book did they write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birthplace) CALL_LOOKUP(profile subject book) CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "Portland, Oregon"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birthyear)",
+        "tool": "lookup",
+        "observation": "No information found for profile subject birthyear"
+      }
+    ],
+    "answer": "Portland, Oregon",
+    "expected_answer": "Portland, Oregon; The Glass Harbor; 2015",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 3,
+    "invalid_calls": 1,
+    "unnecessary_calls": 1,
+    "reward": -0.30000000000000004
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years before their death was the book published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book); CALL_LOOKUP(profile subject book publication year); CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "2021"
+      }
+    ],
+    "answer": "The book written by the profile subject was \"To Kill a Mockingbird\" which was published in 1960. The profile subject died in 1985. Therefore, the book was published 24 years before the profile",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.30000000000000004
+  },
+  {
+    "task": "When was the profile subject born, where were they born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)  \nCALL_LOOKUP(profile subject birthplace)  \nCALL_LOOKUP(profile subject death year)  \nCALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and was born in a place I don't know yet. They died in 2016. When they died, they were 29 years old.",
+    "expected_answer": "1987; Portland, Oregon; 2021; 34",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.30000000000000004
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years after publication did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book) , CALL_LOOKUP(profile subject book publication year), CALL_LOOKUP(profile subject death year), CALL_LOOKUP(profile subject book publication year) - (CALL_LOOKUP(profile subject book publication year))",
+        "tool": "lookup",
+        "observation": "2021"
+      }
+    ],
+    "answer": "The profile subject wrote \"To Kill a Mockingbird\" which was published in 1960. They died in 1957. There were 14 years between their death and the publication of the book.",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.30000000000000004
+  },
+  {
+    "task": "What is 500 / 10, and is the result greater than 40?",
+    "steps": [
+      {
+        "action": "CALL_CALCULATOR(500 / 10)",
+        "tool": "calculator",
+        "observation": 50.0
+      },
+      {
+        "action": "CALL_CALCULATOR((50.0 > 40))",
+        "tool": "calculator",
+        "observation": true
+      }
+    ],
+    "answer": "True",
+    "expected_answer": "True",
+    "answer_correct": true,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 1,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": 0.85
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "tasks": 9,
+  "answer_correct": 2,
+  "answer_accuracy": 0.2222222222222222,
+  "tool_selection_correct": 1,
+  "tool_selection_accuracy": 0.1111111111111111,
+  "argument_correct": 3,
+  "argument_accuracy": 0.3333333333333333,
+  "average_reward": 0.022222222222222192,
+  "invalid_calls": 10,
+  "unnecessary_calls": 1,
+  "missing_required_steps": 23
+}

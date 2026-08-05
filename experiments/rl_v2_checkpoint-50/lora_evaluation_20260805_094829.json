@@ -1,0 +1,227 @@
+[
+  {
+    "task": "Where was the profile subject born, and what book did they write?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birthplace)_CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "Portland, Oregon"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "Portland, Oregon wrote \"The Time Traveler's Wife\" in 2015.",
+    "expected_answer": "Portland, Oregon; The Glass Harbor",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 1,
+    "reward": -0.25
+  },
+  {
+    "task": "What book did the profile subject write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book)",
+        "tool": "lookup",
+        "observation": "The Glass Harbor"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "The profile subject wrote \"The Glass Harbor\" which was published in 2015.",
+    "expected_answer": "The Glass Harbor; 2015",
+    "answer_correct": true,
+    "tool_selection_correct": true,
+    "argument_correct": true,
+    "missing_required_steps": 0,
+    "invalid_calls": 0,
+    "unnecessary_calls": 0,
+    "reward": 1.2000000000000002
+  },
+  {
+    "task": "When was the profile subject born, and when did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and died after 2016.",
+    "expected_answer": "1987; 2021",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": true,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  },
+  {
+    "task": "When was the profile subject born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)  \nCALL_LOOKUP(profile subject death year)  \nCALL_LOOKUP(profile subject book publication year) - CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject was born in 1987 and died in 2015. They were 28 years old when they died.",
+    "expected_answer": "1987; 2021; 34",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 3,
+    "invalid_calls": 1,
+    "unnecessary_calls": 0,
+    "reward": -0.25
+  },
+  {
+    "task": "Where was the profile subject born, what book did they write, and when was it published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birthplace) CALL_LOOKUP(profile subject book) CALL_LOOKUP(profile subject book publication year)",
+        "tool": "lookup",
+        "observation": "Portland, Oregon"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "2021"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birthplace)",
+        "tool": "lookup",
+        "observation": "Portland, Oregon"
+      }
+    ],
+    "answer": "Portland, Oregon",
+    "expected_answer": "Portland, Oregon; The Glass Harbor; 2015",
+    "answer_correct": false,
+    "tool_selection_correct": true,
+    "argument_correct": false,
+    "missing_required_steps": 2,
+    "invalid_calls": 1,
+    "unnecessary_calls": 2,
+    "reward": -0.2
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years before their death was the book published?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book); CALL_LOOKUP(profile subject book publication year); CALL_LOOKUP(profile subject death year)",
+        "tool": "lookup",
+        "observation": "2021"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject birth year)",
+        "tool": "lookup",
+        "observation": "1987"
+      }
+    ],
+    "answer": "The profile subject wrote a book called \"The Book Title\" which was published in 2021. They died in 2021. The book was written 4 years before their death.",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 1,
+    "unnecessary_calls": 1,
+    "reward": -0.35
+  },
+  {
+    "task": "When was the profile subject born, where were they born, when did they die, and how old were they when they died?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject birth year) - 1932, CALL_LOOKUP(profile subject birthplace) - London, UK, CALL_LOOKUP(profile subject death year) - 2016, CALL_LOOKUP(profile subject book) - \"The Road",
+        "tool": "lookup",
+        "observation": "1987"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year) - 2014",
+        "tool": "lookup",
+        "observation": "2015"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year) - 2015",
+        "tool": "lookup",
+        "observation": "2015"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year) - 2015",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "CALL_LOOKUP(profile subject book publication year) - 2015",
+    "expected_answer": "1987; Portland, Oregon; 2021; 34",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 4,
+    "unnecessary_calls": 0,
+    "reward": -0.6000000000000001
+  },
+  {
+    "task": "What book did the profile subject write, when was it published, when did they die, and how many years after publication did they die?",
+    "steps": [
+      {
+        "action": "CALL_LOOKUP(profile subject book)_CALL_LOOKUP(profile subject book publication year)_CALL_LOOKUP(profile subject death year)_CALL_CALCULATOR((CALL_LOOKUP(profile subject book publication year) - 1900))",
+        "tool": "lookup",
+        "observation": "2021"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)_CALL_CALCULATOR(2021 - 1900)",
+        "tool": "lookup",
+        "observation": "2015"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)_CALL_CALCULATOR(2015 - 1900)",
+        "tool": "lookup",
+        "observation": "2015"
+      },
+      {
+        "action": "CALL_LOOKUP(profile subject book publication year)_CALL_CALCULATOR(2015 - 1900)",
+        "tool": "lookup",
+        "observation": "2015"
+      }
+    ],
+    "answer": "The book was written by the profile subject in 2015, they died in 2015, and there were 10 years between their death and when the book was published.",
+    "expected_answer": "The Glass Harbor; 2015; 2021; 6",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": false,
+    "missing_required_steps": 4,
+    "invalid_calls": 4,
+    "unnecessary_calls": 0,
+    "reward": -0.6000000000000001
+  },
+  {
+    "task": "What is 500 / 10, and is the result greater than 40?",
+    "steps": [],
+    "answer": "CALL calculator(500 / 10)",
+    "expected_answer": "True",
+    "answer_correct": false,
+    "tool_selection_correct": false,
+    "argument_correct": null,
+    "missing_required_steps": 2,
+    "invalid_calls": 0,
+    "unnecessary_calls": 0,
+    "reward": -0.1
+  }
+]

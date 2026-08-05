@@ -11,6 +11,14 @@ RESULTS_PATH = (
     "experiments/lora_test_checkpoint_-1/"
     "lora_evaluation_20260805_083721.json"
 )
+RESULTS_PATH = (
+    "experiments/rl_v2_checkpoint-25/"
+    "lora_evaluation_20260805_094600.json"
+)
+RESULTS_PATH = (
+    "experiments/rl_v2_checkpoint-50/"
+    "lora_evaluation_20260805_094829.json"
+)
 
 SUMMARY_DIR = Path("experiments/summaries")
 MASTER_CSV = Path("experiments/results_summary.csv")
