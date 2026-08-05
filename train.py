@@ -17,19 +17,13 @@ from evaluate import (
 from experiment_config import (
     CHECKPOINT_EVERY,
     CHECKPOINT_PREFIX,
+    LEARNING_RATE,
     MAX_STEPS,
     NUM_UPDATES,
 )
 from model import model
 from reward import calculate_multistep_efficiency_reward
 
-# NUM_UPDATES = 1
-# CHECKPOINT_EVERY = 1
-# MAX_STEPS = 4
-
-LEARNING_RATE = 1e-6
-
-# CHECKPOINT_PREFIX = "lora_test_checkpoint"
 
 RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 PATH = f"training_trajectories_{RUN_ID}.jsonl"
