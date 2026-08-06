@@ -3,18 +3,18 @@ from datetime import datetime, timezone
 
 import torch
 
-from agent import (
+from tool_selection.agent import (
     SYSTEM_PROMPT_TOOLS,
     execute_action,
     generate_action,
     sequence_log_probability,
 )
-from evaluate import (
+from tool_selection.evaluate import (
     MULTISTEP_TASKS,
     evaluate_tool_trajectory,
     judge_answer,
 )
-from experiment_config import (
+from tool_selection.experiment_config import (
     CHECKPOINT_EVERY,
     CHECKPOINT_PREFIX,
     LEARNING_RATE,
@@ -22,7 +22,7 @@ from experiment_config import (
     NUM_UPDATES,
 )
 from model import model
-from reward import calculate_multistep_efficiency_reward
+from tool_selection.reward import calculate_multistep_efficiency_reward
 
 
 RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -44,7 +44,9 @@ def rollout(task_data):
     """
     Run one complete environment trajectory.
 
-    Returns the trajectory and the generated-token log probability.
+    Returns:
+        trajectory
+        total generated-token log probability
     """
 
     messages = [
@@ -87,6 +89,20 @@ def rollout(task_data):
             }
         )
 
+        if observation.startswith("INVALID_ACTION:"):
+            tool_result_message = (
+                f"{observation}\n\n"
+                "Your previous action was invalid. "
+                "Output exactly one valid tool call or a final answer."
+            )
+        else:
+            tool_result_message = (
+                f"Tool result: {observation}\n\n"
+                "If you have enough information, "
+                "answer the original question. "
+                "Otherwise, make one more tool call."
+            )
+
         messages.extend(
             [
                 {
@@ -95,12 +111,7 @@ def rollout(task_data):
                 },
                 {
                     "role": "user",
-                    "content": (
-                        f"Tool result: {observation}\n\n"
-                        "If you have enough information, "
-                        "answer the original question. "
-                        "Otherwise, make one more tool call."
-                    ),
+                    "content": tool_result_message,
                 },
             ]
         )
@@ -108,7 +119,9 @@ def rollout(task_data):
     if not answer:
         answer = ""
 
-    total_log_probability = torch.stack(log_probability_terms).sum()
+    total_log_probability = torch.stack(
+        log_probability_terms
+    ).sum()
 
     return (
         {

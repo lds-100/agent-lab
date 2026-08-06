@@ -1,7 +1,7 @@
-import torch
+# import torch
 
 from env import calculator, lookup
-from model import model, tokenizer
+# from model import model, tokenizer
 
 
 MAX_NEW_TOKENS = 50
@@ -11,25 +11,34 @@ SYSTEM_PROMPT_BASELINE = (
 )
 
 SYSTEM_PROMPT_TOOLS = (
-    "You are an agent that may either call one tool or answer the user's question. "
-    "If you still need information, output exactly one tool call and nothing else. "
-    "For arithmetic, output CALL_CALCULATOR(expression). "
-    "For information about the profile subject, output CALL_LOOKUP(topic). "
+    "You are an agent that may either call exactly one tool or answer the user's question. "
+    "If you still need information, output exactly ONE tool call and NOTHING ELSE. "
+    "Never output two tool calls in the same response. "
+    "Never combine tool calls with 'and', commas, newlines, or other text. "
+    "Never write CALL calculator; the tool name is exactly CALL_CALCULATOR. "
+    "Never write CALL lookup; the tool name is exactly CALL_LOOKUP. "
+    "For arithmetic, output exactly: CALL_CALCULATOR(expression) "
+    "where expression is the arithmetic expression to calculate. "
+    "For information about the profile subject, output exactly: CALL_LOOKUP(topic) "
+    "where topic is a natural-language lookup topic. "
     "The lookup tool contains the profile subject's birth year, death year, "
     "birthplace, book, and book publication year. "
-    "Use natural-language lookup topics such as: "
+    "Valid lookup topics include exactly: "
     "CALL_LOOKUP(profile subject birth year), "
     "CALL_LOOKUP(profile subject death year), "
     "CALL_LOOKUP(profile subject birthplace), "
     "CALL_LOOKUP(profile subject book), "
     "CALL_LOOKUP(profile subject book publication year). "
-    "Retrieve each required fact separately. "
+    "Retrieve each required fact separately, using one tool call per response. "
     "Do not guess profile subject facts. "
+    "After a tool result, decide whether another fact is required. "
+    "If another fact is required, output exactly one more tool call. "
     "Once you have enough information to answer the question, "
     "do NOT call another tool. "
     "Instead, reply with the final answer in natural language. "
-    "Output either one tool call or the final answer."
+    "Your response must be either exactly one valid tool call or one final natural-language answer."
 )
+
 
 SYSTEM_PROMPT_FINAL = (
     "Use the tool result to answer the user's original question. "
@@ -184,7 +193,7 @@ def agent(task, max_steps=4):
 
 def execute_action(action):
     """
-    Execute one tool action.
+    Execute exactly one tool action.
 
     Returns:
         tool_name
@@ -192,23 +201,31 @@ def execute_action(action):
         is_final_answer
     """
 
-    if action.startswith("CALL_CALCULATOR("):
-        expression = action[
-            len("CALL_CALCULATOR(") : -1
-        ]
+    action = action.strip()
 
-        result = calculator(expression)
+    # Reject multiple tool calls in one action.
+    tool_call_count = (
+        action.count("CALL_LOOKUP(")
+        + action.count("CALL_CALCULATOR(")
+    )
 
+    if tool_call_count > 1:
         return (
-            "calculator",
-            result,
+            None,
+            "INVALID_ACTION: multiple tool calls in one action",
             False,
         )
 
-    if action.startswith("CALL_LOOKUP("):
-        topic = action[
-            len("CALL_LOOKUP(") : -1
-        ]
+    # Lookup tool
+    if action.startswith("CALL_LOOKUP(") and action.endswith(")"):
+        topic = action[len("CALL_LOOKUP("):-1].strip()
+
+        if not topic:
+            return (
+                None,
+                "INVALID_ACTION: empty lookup topic",
+                False,
+            )
 
         result = lookup(topic)
 
@@ -218,11 +235,32 @@ def execute_action(action):
             False,
         )
 
+    # Calculator tool
+    if action.startswith("CALL_CALCULATOR(") and action.endswith(")"):
+        expression = action[len("CALL_CALCULATOR("):-1].strip()
+
+        if not expression:
+            return (
+                None,
+                "INVALID_ACTION: empty calculator expression",
+                False,
+            )
+
+        result = calculator(expression)
+
+        return (
+            "calculator",
+            result,
+            False,
+        )
+
+    # Anything else is malformed.
     return (
         None,
-        None,
-        True,
+        "INVALID_ACTION: malformed action",
+        False,
     )
+
 
 
 def sequence_log_probability(
