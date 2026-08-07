@@ -281,7 +281,7 @@ def evaluate(output_path="baseline_trajectories.json"):
         print("REWARD:", trajectory["reward"])
         print(
             "TOKENS:",
-            trajectory["generated_ids"].shape[0],
+           len(trajectory["generated_ids"])
         )
         print(
             "LOG PROB:",
