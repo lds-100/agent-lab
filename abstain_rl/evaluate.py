@@ -236,14 +236,16 @@ def rollout(task):
 
         "raw_output": raw_output,
 
-        "generated_ids": generated_ids.detach().cpu(),
-        "input_ids": input_ids.detach().cpu(),
+        "generated_ids": generated_ids.detach().cpu().tolist(),
+        "input_ids": input_ids.detach().cpu().tolist(),
 
         "predicted_action": predicted_action,
         "predicted_answer": predicted_answer,
 
         "correct": correct,
         "reward": reward,
+
+        "log_probability": log_probability.item(),
     }
 
     return (
