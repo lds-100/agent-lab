@@ -637,5 +637,3 @@ def parse_action(raw_output):
         "answer": None,
         "valid_format": False,
     }
-
-evaluate()
