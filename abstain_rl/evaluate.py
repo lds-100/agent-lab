@@ -1,5 +1,9 @@
-import torch
 import json
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from tasks import ABSTAIN_TASKS
 from model import model, tokenizer
 
