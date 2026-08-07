@@ -26,33 +26,105 @@ Output exactly one of these formats.
 MAX_NEW_TOKENS = 32
 
 
-def parse_action(action):
-    action = action.strip()
+def parse_action(raw_output):
+    """
+    Parse the model output according to the strict evaluation protocol.
 
+    Valid outputs:
+
+        ABSTAIN
+
+    or:
+
+        ANSWER: <answer>
+
+    Everything else is INVALID.
+
+    In particular:
+
+        ANSWER: ABSTAIN
+
+    is INVALID rather than being interpreted as ABSTAIN.
+    """
+
+    action = raw_output.strip()
+
+    # Exact abstention.
     if action == "ABSTAIN":
         return {
             "action": "ABSTAIN",
             "answer": None,
+            "valid_format": True,
         }
 
+    # Answer.
     if action.startswith("ANSWER:"):
         answer = action[len("ANSWER:"):].strip()
 
+        # Empty answer.
         if not answer:
             return {
                 "action": "INVALID",
                 "answer": None,
+                "valid_format": False,
+            }
+
+        # Do not allow "ANSWER: ABSTAIN".
+        if answer.upper() == "ABSTAIN":
+            return {
+                "action": "INVALID",
+                "answer": None,
+                "valid_format": False,
             }
 
         return {
             "action": "ANSWER",
             "answer": answer,
+            "valid_format": True,
         }
 
+    # Anything else is invalid.
     return {
         "action": "INVALID",
         "answer": None,
+        "valid_format": False,
     }
+
+
+def calculate_correctness(
+    expected_action,
+    expected_answer,
+    predicted_action,
+    predicted_answer,
+):
+    """
+    Determine semantic correctness.
+
+    INVALID responses are always incorrect.
+
+    For ANSWER tasks, the predicted answer must exactly match
+    the expected answer.
+
+    For ABSTAIN tasks, the predicted action must be ABSTAIN.
+    """
+
+    if predicted_action == "INVALID":
+        return False
+
+    if expected_action == "ANSWER":
+
+        if predicted_action != "ANSWER":
+            return False
+
+        return predicted_answer.strip() == expected_answer
+
+    if expected_action == "ABSTAIN":
+
+        return predicted_action == "ABSTAIN"
+
+    raise ValueError(
+        f"Unknown expected action: {expected_action}"
+    )
 
 
 def calculate_reward(
@@ -61,27 +133,43 @@ def calculate_reward(
     predicted_action,
     predicted_answer,
 ):
+    """
+    Calculate the task reward.
+
+    Reward:
+        +1.0  correct answer
+        +1.0  correct abstention
+        -0.5  abstaining when an answer was available
+        -1.0  incorrect answer
+        -1.0  invalid output format
+    """
+
+    # Protocol failure.
     if predicted_action == "INVALID":
         return -1.0
 
+    # Expected an answer.
     if expected_action == "ANSWER":
 
+        # Model abstained despite answer being available.
         if predicted_action == "ABSTAIN":
             return -0.5
 
-        if answer_is_correct(
-            predicted_answer,
-            expected_answer,
-        ):
+        # Correct answer.
+        if predicted_answer.strip() == expected_answer:
             return 1.0
 
+        # Incorrect answer.
         return -1.0
 
+    # Expected abstention.
     if expected_action == "ABSTAIN":
 
+        # Correct abstention.
         if predicted_action == "ABSTAIN":
             return 1.0
 
+        # Answered when it should have abstained.
         return -1.0
 
     raise ValueError(
@@ -90,6 +178,15 @@ def calculate_reward(
 
 
 def generate_action(task):
+    """
+    Generate one model response for a task.
+
+    Returns:
+        raw_output
+        generated_ids
+        input_ids
+    """
+
     messages = [
         {
             "role": "system",
@@ -141,11 +238,18 @@ def sequence_log_probability(
     input_ids,
     generated_ids,
 ):
+    """
+    Calculate the log probability of the generated sequence.
+
+    Returns a scalar tensor containing:
+
+        sum(log P(token_i | previous tokens))
+    """
+
     if generated_ids.numel() == 0:
         return torch.tensor(
             0.0,
             device=model.device,
-            requires_grad=True,
         )
 
     full_ids = torch.cat(
@@ -156,14 +260,16 @@ def sequence_log_probability(
         dim=1,
     )
 
-    outputs = model(
-        input_ids=full_ids,
-    )
+    with torch.no_grad():
+        outputs = model(
+            input_ids=full_ids,
+        )
 
     logits = outputs.logits
 
     prompt_length = input_ids.shape[1]
 
+    # Logits predicting each generated token.
     generated_logits = logits[
         :,
         prompt_length - 1:-1,
@@ -182,8 +288,21 @@ def sequence_log_probability(
 
     return token_log_probs.sum()
 
+
 def rollout(task):
-    raw_output, generated_ids, input_ids = generate_action(task)
+    """
+    Run one complete trajectory for one task.
+
+    Returns:
+        trajectory
+        sequence_log_probability
+    """
+
+    (
+        raw_output,
+        generated_ids,
+        input_ids,
+    ) = generate_action(task)
 
     log_probability = sequence_log_probability(
         input_ids,
@@ -194,10 +313,20 @@ def rollout(task):
 
     predicted_action = parsed["action"]
     predicted_answer = parsed["answer"]
+    valid_format = parsed["valid_format"]
 
     expected_action = task["expected_action"]
     expected_answer = task["expected_answer"]
 
+    # Semantic correctness.
+    correct = calculate_correctness(
+        expected_action,
+        expected_answer,
+        predicted_action,
+        predicted_answer,
+    )
+
+    # Reward.
     reward = calculate_reward(
         expected_action,
         expected_answer,
@@ -205,54 +334,81 @@ def rollout(task):
         predicted_answer,
     )
 
-    if expected_action == "ANSWER":
-        correct = (
-            predicted_action == "ANSWER"
-            and answer_is_correct(
-                predicted_answer,
-                expected_answer,
-            )
-        )
-
-    elif expected_action == "ABSTAIN":
-        correct = (
-            predicted_action == "ABSTAIN"
-        )
-
-    else:
-        raise ValueError(
-            f"Unknown expected action: {expected_action}"
-        )
-
+    # Save everything in JSON-safe Python types.
     trajectory = {
         "task": task["task"],
+
         "expected_action": expected_action,
         "expected_answer": expected_answer,
+
         "raw_output": raw_output,
-        "generated_ids": generated_ids.detach().cpu().tolist(),
-        "input_ids": input_ids.detach().cpu().tolist(),
+
         "predicted_action": predicted_action,
         "predicted_answer": predicted_answer,
+
+        "valid_format": valid_format,
         "correct": correct,
         "reward": reward,
+
+        # JSON-safe token IDs.
+        "generated_ids": (
+            generated_ids
+            .detach()
+            .cpu()
+            .tolist()
+        ),
+
+        "input_ids": (
+            input_ids
+            .detach()
+            .cpu()
+            .tolist()
+        ),
+
+        "token_count": int(
+            generated_ids.numel()
+        ),
+
+        "sequence_log_probability": float(
+            log_probability.item()
+        ),
     }
 
-    return trajectory, log_probability
+    return (
+        trajectory,
+        log_probability,
+    )
 
-def answer_is_correct(predicted_answer, expected_answer):
-    if predicted_answer is None:
-        return False
 
-    predicted = predicted_answer.strip().lower()
-    expected = expected_answer.strip().lower()
+def evaluate(
+    output_path="baseline_trajectories.json",
+):
+    """
+    Run the full evaluation set and save trajectories to JSON.
 
-    return expected in predicted
+    Args:
+        output_path: Path where the trajectory JSON will be saved.
 
-def evaluate(output_path="baseline_trajectories.json"):
+    Returns:
+        List of trajectory dictionaries.
+    """
+
     results = []
 
+    # Overall statistics.
     correct = 0
     total_reward = 0.0
+
+    # Protocol statistics.
+    valid = 0
+    invalid = 0
+
+    # Answer / abstain statistics.
+    correct_answers = 0
+    correct_abstentions = 0
+
+    wrong_answers = 0
+    wrong_abstentions = 0
 
     for task in ABSTAIN_TASKS:
 
@@ -260,40 +416,198 @@ def evaluate(output_path="baseline_trajectories.json"):
 
         results.append(trajectory)
 
-        if trajectory["correct"]:
+        expected_action = trajectory[
+            "expected_action"
+        ]
+
+        predicted_action = trajectory[
+            "predicted_action"
+        ]
+
+        is_correct = trajectory[
+            "correct"
+        ]
+
+        reward = trajectory[
+            "reward"
+        ]
+
+        # Overall statistics.
+        if is_correct:
             correct += 1
 
-        total_reward += trajectory["reward"]
+        total_reward += reward
 
+        # Protocol statistics.
+        if trajectory["valid_format"]:
+            valid += 1
+        else:
+            invalid += 1
+
+        # Detailed semantic statistics.
+        if expected_action == "ANSWER":
+
+            if is_correct:
+                correct_answers += 1
+
+            elif predicted_action == "ABSTAIN":
+                wrong_abstentions += 1
+
+            else:
+                wrong_answers += 1
+
+        elif expected_action == "ABSTAIN":
+
+            if is_correct:
+                correct_abstentions += 1
+
+            elif predicted_action == "ANSWER":
+                wrong_answers += 1
+
+            elif predicted_action == "INVALID":
+                # Already counted in invalid.
+                pass
+
+        else:
+            raise ValueError(
+                f"Unknown expected action: "
+                f"{expected_action}"
+            )
+
+        # Print trajectory.
         print("#" * 40)
         print("TASK:")
         print(task["task"])
-        print("EXPECTED:", task["expected_action"])
-        print("MODEL:", trajectory["raw_output"])
-        print("PARSED:", trajectory["predicted_action"])
-        print("ANSWER:", trajectory["predicted_answer"])
-        print("CORRECT:", trajectory["correct"])
-        print("REWARD:", trajectory["reward"])
+
         print(
-            "TOKENS:",
-           len(trajectory["generated_ids"])
-        )
-        print(
-            "LOG PROB:",
-            log_probability.item(),
+            "EXPECTED:",
+            trajectory["expected_action"],
         )
 
+        print(
+            "EXPECTED ANSWER:",
+            trajectory["expected_answer"],
+        )
+
+        print(
+            "MODEL:",
+            trajectory["raw_output"],
+        )
+
+        print(
+            "PARSED:",
+            trajectory["predicted_action"],
+        )
+
+        print(
+            "ANSWER:",
+            trajectory["predicted_answer"],
+        )
+
+        print(
+            "VALID FORMAT:",
+            trajectory["valid_format"],
+        )
+
+        print(
+            "CORRECT:",
+            trajectory["correct"],
+        )
+
+        print(
+            "REWARD:",
+            trajectory["reward"],
+        )
+
+        print(
+            "TOKENS:",
+            trajectory["token_count"],
+        )
+
+        print(
+            "LOG PROB:",
+            trajectory[
+                "sequence_log_probability"
+            ],
+        )
+
+    total = len(ABSTAIN_TASKS)
+
+    print("\n" + "=" * 40)
+    print("EVALUATION SUMMARY")
+    print("=" * 40)
+
     print(
-        f"\nScore: {correct}/{len(ABSTAIN_TASKS)}"
+        f"Overall accuracy: "
+        f"{correct}/{total} "
+        f"({correct / total:.2%})"
+    )
+
+    print(
+        f"Protocol validity: "
+        f"{valid}/{total} "
+        f"({valid / total:.2%})"
+    )
+
+    print(
+        f"Invalid responses: "
+        f"{invalid}/{total}"
+    )
+
+    print(
+        f"Correct answers: "
+        f"{correct_answers}"
+    )
+
+    print(
+        f"Correct abstentions: "
+        f"{correct_abstentions}"
+    )
+
+    print(
+        f"Wrong answers: "
+        f"{wrong_answers}"
+    )
+
+    print(
+        f"Wrong abstentions: "
+        f"{wrong_abstentions}"
+    )
+
+    print(
+        f"Total reward: "
+        f"{total_reward:.2f}"
     )
 
     print(
         f"Average reward: "
-        f"{total_reward / len(ABSTAIN_TASKS):.2f}"
+        f"{total_reward / total:.2f}"
     )
 
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2)
+    # Save trajectories as JSON.
+    output_path = Path(output_path)
+
+    # Create parent directory if needed.
+    if output_path.parent != Path("."):
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    with open(
+        output_path,
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(
+            results,
+            f,
+            indent=2,
+        )
+
+    print(
+        f"\nSaved trajectories to: "
+        f"{output_path}"
+    )
 
     return results
-
