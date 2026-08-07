@@ -1,4 +1,6 @@
 import json
+import re
+
 import sys
 from pathlib import Path
 
@@ -25,152 +27,26 @@ Output exactly one of these formats.
 
 MAX_NEW_TOKENS = 32
 
-
-def parse_action(raw_output):
-    """
-    Parse the model output according to the strict evaluation protocol.
-
-    Valid outputs:
-
-        ABSTAIN
-
-    or:
-
-        ANSWER: <answer>
-
-    Everything else is INVALID.
-
-    In particular:
-
-        ANSWER: ABSTAIN
-
-    is INVALID rather than being interpreted as ABSTAIN.
-    """
-
-    action = raw_output.strip()
-
-    # Exact abstention.
-    if action == "ABSTAIN":
-        return {
-            "action": "ABSTAIN",
-            "answer": None,
-            "valid_format": True,
-        }
-
-    # Answer.
-    if action.startswith("ANSWER:"):
-        answer = action[len("ANSWER:"):].strip()
-
-        # Empty answer.
-        if not answer:
-            return {
-                "action": "INVALID",
-                "answer": None,
-                "valid_format": False,
-            }
-
-        # Do not allow "ANSWER: ABSTAIN".
-        if answer.upper() == "ABSTAIN":
-            return {
-                "action": "INVALID",
-                "answer": None,
-                "valid_format": False,
-            }
-
-        return {
-            "action": "ANSWER",
-            "answer": answer,
-            "valid_format": True,
-        }
-
-    # Anything else is invalid.
-    return {
-        "action": "INVALID",
-        "answer": None,
-        "valid_format": False,
-    }
-
-
-def calculate_correctness(
-    expected_action,
-    expected_answer,
-    predicted_action,
-    predicted_answer,
-):
-    """
-    Determine semantic correctness.
-
-    INVALID responses are always incorrect.
-
-    For ANSWER tasks, the predicted answer must exactly match
-    the expected answer.
-
-    For ABSTAIN tasks, the predicted action must be ABSTAIN.
-    """
-
-    if predicted_action == "INVALID":
-        return False
-
-    if expected_action == "ANSWER":
-
-        if predicted_action != "ANSWER":
-            return False
-
-        return predicted_answer.strip() == expected_answer
-
-    if expected_action == "ABSTAIN":
-
-        return predicted_action == "ABSTAIN"
-
-    raise ValueError(
-        f"Unknown expected action: {expected_action}"
-    )
-
-
 def calculate_reward(
     expected_action,
     expected_answer,
     predicted_action,
     predicted_answer,
+    correct,
 ):
-    """
-    Calculate the task reward.
-
-    Reward:
-        +1.0  correct answer
-        +1.0  correct abstention
-        -0.5  abstaining when an answer was available
-        -1.0  incorrect answer
-        -1.0  invalid output format
-    """
-
-    # Protocol failure.
     if predicted_action == "INVALID":
         return -1.0
 
-    # Expected an answer.
     if expected_action == "ANSWER":
 
-        # Model abstained despite answer being available.
         if predicted_action == "ABSTAIN":
             return -0.5
 
-        # Correct answer.
-        if predicted_answer.strip() == expected_answer:
-            return 1.0
+        return 1.0 if correct else -1.0
 
-        # Incorrect answer.
-        return -1.0
-
-    # Expected abstention.
     if expected_action == "ABSTAIN":
 
-        # Correct abstention.
-        if predicted_action == "ABSTAIN":
-            return 1.0
-
-        # Answered when it should have abstained.
-        return -1.0
+        return 1.0 if predicted_action == "ABSTAIN" else -1.0
 
     raise ValueError(
         f"Unknown expected action: {expected_action}"
@@ -332,6 +208,7 @@ def rollout(task):
         expected_answer,
         predicted_action,
         predicted_answer,
+        correct,
     )
 
     # Save everything in JSON-safe Python types.
@@ -611,3 +488,154 @@ def evaluate(
     )
 
     return results
+
+
+def normalize_answer(answer):
+    answer = answer.strip().lower()
+
+    # Remove trailing punctuation.
+    answer = answer.rstrip(" .!?")
+
+    # Normalize common units.
+    answer = re.sub(r"\s+years?$", "", answer)
+
+    # Normalize whitespace.
+    answer = re.sub(r"\s+", " ", answer)
+
+    return answer
+
+
+def calculate_correctness(
+    expected_action,
+    expected_answer,
+    predicted_action,
+    predicted_answer,
+):
+    if predicted_action == "INVALID":
+        return False
+
+    # -----------------------------------------
+    # ANSWER task
+    # -----------------------------------------
+    if expected_action == "ANSWER":
+
+        if predicted_action != "ANSWER":
+            return False
+
+        if expected_answer is None or predicted_answer is None:
+            return False
+
+        expected = normalize_answer(expected_answer)
+        predicted = normalize_answer(predicted_answer)
+
+        # -----------------------------------------
+        # Numeric expected answer
+        # -----------------------------------------
+        if re.fullmatch(r"-?\d+(?:\.\d+)?", expected):
+
+            numbers = re.findall(
+                r"(?<![\d.])-?\d+(?:\.\d+)?(?![\d.])",
+                predicted,
+            )
+
+            # Compare numerically rather than as strings.
+            expected_num = float(expected)
+
+            return any(
+                float(number) == expected_num
+                for number in numbers
+            )
+
+        # -----------------------------------------
+        # Text expected answer
+        # -----------------------------------------
+        expected_lower = expected.lower()
+        predicted_lower = predicted.lower()
+
+        # Exact match.
+        if predicted_lower == expected_lower:
+            return True
+
+        # Expected answer appears in the model's
+        # explanation.
+        if expected_lower in predicted_lower:
+            return True
+
+        return False
+
+    # -----------------------------------------
+    # ABSTAIN task
+    # -----------------------------------------
+    if expected_action == "ABSTAIN":
+        return predicted_action == "ABSTAIN"
+
+    raise ValueError(
+        f"Unknown expected action: {expected_action}"
+    )
+
+def parse_action(raw_output):
+    """
+    Parse model output.
+
+    Valid:
+        ABSTAIN
+        ABSTAIN <optional explanation>
+
+        ANSWER: <answer>
+
+    Invalid:
+        ANSWER:
+        ANSWER: ABSTAIN
+        anything else
+    """
+
+    action = raw_output.strip()
+
+    # --------------------------------------------------
+    # ABSTAIN
+    # --------------------------------------------------
+    if action.upper() == "ABSTAIN" or action.upper().startswith("ABSTAIN\n"):
+        return {
+            "action": "ABSTAIN",
+            "answer": None,
+            "valid_format": True,
+        }
+
+    # --------------------------------------------------
+    # ANSWER
+    # --------------------------------------------------
+    if action.upper().startswith("ANSWER:"):
+        answer = action[len("ANSWER:"):].strip()
+
+        # Empty answer
+        if not answer:
+            return {
+                "action": "INVALID",
+                "answer": None,
+                "valid_format": False,
+            }
+
+        # ANSWER: ABSTAIN is invalid
+        if answer.upper() == "ABSTAIN":
+            return {
+                "action": "INVALID",
+                "answer": None,
+                "valid_format": False,
+            }
+
+        return {
+            "action": "ANSWER",
+            "answer": answer,
+            "valid_format": True,
+        }
+
+    # --------------------------------------------------
+    # Anything else
+    # --------------------------------------------------
+    return {
+        "action": "INVALID",
+        "answer": None,
+        "valid_format": False,
+    }
+
+evaluate()

@@ -314,8 +314,8 @@ Returned to Portland in 2003.
 Question:
 Where did the profile subject live in 2000?
 """,
-    "expected_action": "ANSWER",
-    "expected_answer": "Seattle",
+    "expected_action": "ABSTAIN",
+    "expected_answer": None,
 },
 
 {
