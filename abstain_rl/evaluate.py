@@ -65,15 +65,20 @@ def calculate_reward(
         return -1.0
 
     if expected_action == "ANSWER":
+
         if predicted_action == "ABSTAIN":
             return -0.5
 
-        if predicted_answer.strip() == expected_answer:
+        if answer_is_correct(
+            predicted_answer,
+            expected_answer,
+        ):
             return 1.0
 
         return -1.0
 
     if expected_action == "ABSTAIN":
+
         if predicted_action == "ABSTAIN":
             return 1.0
 
@@ -177,21 +182,8 @@ def sequence_log_probability(
 
     return token_log_probs.sum()
 
-
 def rollout(task):
-    """
-    Run one complete trajectory for one task.
-
-    Returns:
-        trajectory
-        total_log_probability
-    """
-
-    (
-        raw_output,
-        generated_ids,
-        input_ids,
-    ) = generate_action(task)
+    raw_output, generated_ids, input_ids = generate_action(task)
 
     log_probability = sequence_log_probability(
         input_ids,
@@ -216,7 +208,10 @@ def rollout(task):
     if expected_action == "ANSWER":
         correct = (
             predicted_action == "ANSWER"
-            and predicted_answer == expected_answer
+            and answer_is_correct(
+                predicted_answer,
+                expected_answer,
+            )
         )
 
     elif expected_action == "ABSTAIN":
@@ -233,25 +228,25 @@ def rollout(task):
         "task": task["task"],
         "expected_action": expected_action,
         "expected_answer": expected_answer,
-
         "raw_output": raw_output,
-
         "generated_ids": generated_ids.detach().cpu().tolist(),
         "input_ids": input_ids.detach().cpu().tolist(),
-
         "predicted_action": predicted_action,
         "predicted_answer": predicted_answer,
-
         "correct": correct,
         "reward": reward,
-
-        "log_probability": log_probability.item(),
     }
 
-    return (
-        trajectory,
-        log_probability,
-    )
+    return trajectory, log_probability
+
+def answer_is_correct(predicted_answer, expected_answer):
+    if predicted_answer is None:
+        return False
+
+    predicted = predicted_answer.strip().lower()
+    expected = expected_answer.strip().lower()
+
+    return expected in predicted
 
 def evaluate(output_path="baseline_trajectories.json"):
     results = []
