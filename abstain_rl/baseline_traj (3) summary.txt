@@ -1,0 +1,11 @@
+======================================== EVALUATION SUMMARY ======================================== 
+Overall accuracy: 51/78 (65.38%) 
+Protocol validity: 73/78 (93.59%) 
+Invalid responses: 5/78 
+Correct answers: 26 
+Correct abstentions: 25 
+Wrong answers: 23 
+Wrong abstentions: 0 
+Total reward: 24.00 
+Average reward: 0.31 
+Saved trajectories to: baseline_trajectories (3).json
