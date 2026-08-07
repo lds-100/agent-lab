@@ -2,6 +2,8 @@ import json
 import sys
 from pathlib import Path
 
+import torch
+
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from .tasks import ABSTAIN_TASKS
